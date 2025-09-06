@@ -511,7 +511,7 @@ def main():
     
     if not st.session_state.authenticated:
         st.title("🔐 Login")
-        st.text_input("Username", key="username")
+        #st.text_input("Username", key="username")
         st.text_input("Password", type="password", key="password")
         if st.button("Log in"):
             check_credentials()

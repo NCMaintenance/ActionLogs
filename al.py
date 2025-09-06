@@ -18,6 +18,7 @@ from folium.plugins import HeatMap
 import sys
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
+import base64
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -260,6 +261,24 @@ def create_wc_image(text_series):
     buf.seek(0)
     return buf
 
+def create_pie_chart_image(data, title):
+    """Generates a static pie chart image as a base64 string."""
+    if data.empty:
+        return None
+    
+    plt.style.use('seaborn-v0_8-whitegrid')
+    fig, ax = plt.subplots(figsize=(3.5, 3.5)) # Small figure size for popups
+    ax.pie(data, labels=data.index, autopct='%1.1f%%', startangle=90, textprops={'fontsize': 9})
+    ax.axis('equal')
+    ax.set_title(title, fontsize=12)
+    
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0.2, transparent=True)
+    plt.close(fig)
+    buf.seek(0)
+    
+    return base64.b64encode(buf.getvalue()).decode()
+
 def map_topical_category(category):
     """Groups detailed topical categories into more granular and meaningful parent themes."""
     if pd.isna(category): return 'Other'
@@ -315,12 +334,6 @@ def run_dashboard():
         df['AI-Generated Topic'].isin(selected_ai_topics)
     ].copy()
     
-    if st.session_state.get('sankey_filter'):
-        filter_label = st.session_state.sankey_filter['label']
-        filter_col = st.session_state.sankey_filter['column']
-        st.info(f"Filtering by Sankey selection: **{filter_label}**")
-        df_filtered = df_filtered[df_filtered[filter_col] == filter_label]
-
     df_filtered['Parent Category'] = df_filtered['Topical Category'].apply(map_topical_category)
 
     if df_filtered.empty:
@@ -402,10 +415,6 @@ def run_dashboard():
         st.plotly_chart(fig_facility_treemap, use_container_width=True)
 
     st.subheader("Risk Flow Analysis")
-    if st.session_state.get('sankey_filter') and st.button("Reset Sankey Filter"):
-        st.session_state.sankey_filter = None
-        st.rerun()
-        
     sankey_data = df_filtered.dropna(subset=['Location of Risk Source', 'Risk Rating', 'Parent Category'])
     if not sankey_data.empty:
         nodes_l0, nodes_l1, nodes_l2 = sorted(sankey_data['Location of Risk Source'].unique()), sorted(sankey_data['Risk Rating'].unique()), sorted(sankey_data['Parent Category'].unique())
@@ -446,20 +455,7 @@ def run_dashboard():
                 color=link_colors
             ))])
         fig.update_layout(title_text="Risk Flow: Source -> Rating -> Category", font_size=12, height=600, margin=dict(l=20, r=20, t=60, b=20))
-        
-        # Use a unique key for plotly_events
-        selected_points = plotly_events(fig, key="sankey_chart_events")
-        if selected_points:
-            point_index = selected_points[0]['pointNumber']
-            clicked_label = all_nodes[point_index]
-            
-            if st.session_state.get('sankey_filter', {}).get('label') != clicked_label:
-                col = 'Parent Category'
-                if clicked_label in nodes_l0: col = 'Location of Risk Source'
-                elif clicked_label in nodes_l1: col = 'Risk Rating'
-                st.session_state.sankey_filter = {'label': clicked_label, 'column': col}
-                st.rerun()
-
+        st.plotly_chart(fig, use_container_width=True)
     st.markdown("---")
 
     st.header("Textual Insights via Word Clouds")
@@ -484,13 +480,44 @@ def run_dashboard():
 
     st.header("Geographic Risk Analysis")
     map_df = df_filtered.dropna(subset=['lat', 'lon'])
-    st.info("Displaying risk concentration as a heatmap across Ireland.")
-    if not map_df.empty:
-        m = folium.Map(location=[53.4, -7.9], zoom_start=7)
-        HeatMap(data=map_df[['lat', 'lon']].values.tolist(), radius=15).add_to(m)
-        folium_static(m)
-    else:
-        st.info("No geolocated data available for the current filters.")
+    
+    col_map1, col_map2 = st.columns(2)
+    with col_map1:
+        st.subheader("Risk Heatmap")
+        if not map_df.empty:
+            m1 = folium.Map(location=[53.4, -7.9], zoom_start=7)
+            HeatMap(data=map_df[['lat', 'lon']].values.tolist(), radius=15).add_to(m1)
+            folium_static(m1, key="heatmap")
+        else:
+            st.info("No geolocated data for heatmap.")
+    
+    with col_map2:
+        st.subheader("AI Topics by Hospital")
+        if not map_df.empty:
+            m2 = folium.Map(location=[53.4, -7.9], zoom_start=7)
+            locations = map_df.groupby(['HSE Facility', 'name', 'lat', 'lon']).size().reset_index(name='count')
+            for idx, row in locations.iterrows():
+                hospital_data = map_df[map_df['HSE Facility'] == row['HSE Facility']]
+                ai_topic_counts = hospital_data['AI-Generated Topic'].value_counts()
+                
+                b64_image = create_pie_chart_image(ai_topic_counts, title="AI Topics")
+                
+                if b64_image:
+                    html = f"""
+                    <b>{row['name']}</b><br>
+                    Total Risks: {row['count']}<br>
+                    <img src="data:image/png;base64,{b64_image}">
+                    """
+                    popup = folium.Popup(html, max_width=400)
+                    folium.Marker(
+                        [row['lat'], row['lon']],
+                        popup=popup,
+                        tooltip=row['name']
+                    ).add_to(m2)
+            folium_static(m2, key="piechart_map")
+        else:
+            st.info("No geolocated data for pie chart map.")
+
     st.markdown("---")
     
     st.header("Filtered Data Details")

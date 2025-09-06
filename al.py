@@ -14,7 +14,10 @@ import io
 import json
 import folium
 from streamlit_folium import folium_static
-from folium.plugins import HeatMap
+from folium.plugins import HeatMap, MarkerCluster
+import sys
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -206,24 +209,24 @@ def get_hospital_locations_batch(_df, api_key):
 
 
 # --- Other Helper Functions ---
-def create_interactive_wordcloud(text_series, top_n=40):
-    """Generates an interactive word cloud from a pandas Series of text."""
+def create_wc_image(text_series):
+    """Generates a classic word cloud image from a pandas Series of text."""
     full_text = ' '.join(text_series.dropna().astype(str))
-    if not full_text: return None
+    if not full_text:
+        return None
+    
     stop_words_list = list(stopwords.words('english'))
-    c_vec = CountVectorizer(stop_words=stop_words_list)
-    words = c_vec.fit_transform([full_text])
-    words_freq = [(word, words[0, idx]) for word, idx in c_vec.vocabulary_.items()]
-    words_freq = sorted(words_freq, key=lambda x: x[1], reverse=True)[:top_n]
-    if not words_freq: return None
-    words, freqs = zip(*words_freq)
-    sizes = np.log1p(np.array(freqs)) * 7
-    colors = [px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)] for i in range(len(words))]
-    pos_x = np.random.uniform(5, 95, size=len(words))
-    pos_y = np.random.uniform(5, 95, size=len(words))
-    trace = go.Scatter(x=pos_x, y=pos_y, mode='text', text=words, textfont={'size': sizes, 'color': colors}, hoverinfo='text', hovertext=[f'{w}: {f}' for w, f in zip(words, freqs)])
-    layout = go.Layout({'xaxis': {'showgrid': False, 'showticklabels': False, 'zeroline': False, 'range': [0, 100]}, 'yaxis': {'showgrid': False, 'showticklabels': False, 'zeroline': False, 'range': [0, 100]}, 'showlegend': False, 'plot_bgcolor': 'rgba(0,0,0,0)', 'paper_bgcolor': 'rgba(0,0,0,0)'})
-    return go.Figure(data=[trace], layout=layout)
+    wc = WordCloud(width=800, height=400, background_color='white', colormap='viridis', stopwords=stop_words_list).generate(full_text)
+    
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.imshow(wc, interpolation='bilinear')
+    ax.axis('off')
+    
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
+    plt.close(fig)
+    buf.seek(0)
+    return buf
 
 def map_topical_category(category):
     """Groups detailed topical categories into more granular and meaningful parent themes."""
@@ -256,7 +259,6 @@ def run_dashboard():
     df = load_and_merge_data(uploaded_file)
     if df is None: return
 
-    # --- Get API key from secrets ---
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
     except KeyError:
@@ -296,7 +298,20 @@ def run_dashboard():
         st.warning("No data matches the current filter settings.")
         return
 
-    # --- GEOGRAPHIC ANALYSIS SECTION ---
+    st.header("Filtered Risk Overview")
+    st.metric(label="Total Risks Identified (Filtered)", value=f"{len(df_filtered)}")
+    st.markdown("---")
+    
+    st.subheader("Risk Rating Breakdown")
+    rating_counts = df_filtered['Risk Rating'].value_counts()
+    rating_percentages = (df_filtered['Risk Rating'].value_counts(normalize=True) * 100).round(1)
+    kpi1, kpi2, kpi3 = st.columns(3)
+    kpi1.metric(label="🔴 High Risks", value=f"{rating_percentages.get('High', 0)}%", delta=f"{rating_counts.get('High', 0)} risks", delta_color="inverse")
+    kpi2.metric(label="🟡 Medium Risks", value=f"{rating_percentages.get('Medium', 0)}%", delta=f"{rating_counts.get('Medium', 0)} risks", delta_color="inverse")
+    kpi3.metric(label="🟢 Low Risks", value=f"{rating_percentages.get('Low', 0)}%", delta=f"{rating_counts.get('Low', 0)} risks", delta_color="off")
+    st.markdown("---")
+
+    # --- NEW LAYOUT: Geographic Analysis Moved Here ---
     st.header("Geographic Risk Analysis")
     map_df = df_filtered.dropna(subset=['lat', 'lon'])
     
@@ -307,6 +322,9 @@ def run_dashboard():
 
     if not map_df.empty:
         m = folium.Map(location=[53.4, -7.9], zoom_start=7)
+        
+        # --- NEW: Marker Clustering for Performance ---
+        marker_cluster = MarkerCluster().add_to(m)
 
         if map_display_mode == "Risk Heatmap":
             HeatMap(data=map_df[['lat', 'lon']].values.tolist(), radius=15).add_to(m)
@@ -332,13 +350,12 @@ def run_dashboard():
                     [row['lat'], row['lon']],
                     popup=popup,
                     tooltip=row['name']
-                ).add_to(m)
+                ).add_to(marker_cluster)
         
         folium_static(m)
     else:
         st.info("No geolocated data available for the current filters.")
         
-    # --- AI TOPICS DONUT CHART ---
     st.subheader("AI-Generated Topic Distribution")
     ai_topic_counts = df_filtered['AI-Generated Topic'].value_counts()
     fig_ai_donut = px.pie(
@@ -350,19 +367,6 @@ def run_dashboard():
     st.plotly_chart(fig_ai_donut, use_container_width=True)
     st.markdown("---")
 
-    st.header("Filtered Risk Overview")
-    st.metric(label="Total Risks Identified (Filtered)", value=f"{len(df_filtered)}")
-    st.markdown("---")
-    
-    st.subheader("Risk Rating Breakdown")
-    rating_counts = df_filtered['Risk Rating'].value_counts()
-    rating_percentages = (df_filtered['Risk Rating'].value_counts(normalize=True) * 100).round(1)
-    kpi1, kpi2, kpi3 = st.columns(3)
-    kpi1.metric(label="🔴 High Risks", value=f"{rating_percentages.get('High', 0)}%", delta=f"{rating_counts.get('High', 0)} risks", delta_color="inverse")
-    kpi2.metric(label="🟡 Medium Risks", value=f"{rating_percentages.get('Medium', 0)}%", delta=f"{rating_counts.get('Medium', 0)} risks", delta_color="inverse")
-    kpi3.metric(label="🟢 Low Risks", value=f"{rating_percentages.get('Low', 0)}%", delta=f"{rating_counts.get('Low', 0)} risks", delta_color="off")
-    st.markdown("---")
-
     st.header("Distribution Analysis")
     col1, col2 = st.columns(2)
     with col1:
@@ -370,7 +374,6 @@ def run_dashboard():
         rating_fig = px.bar(df_filtered['Risk Rating'].value_counts(), labels={'x': 'Risk Rating', 'y': 'Count'}, color=df_filtered['Risk Rating'].value_counts().index)
         rating_fig.update_layout(showlegend=False)
         st.plotly_chart(rating_fig, use_container_width=True)
-
     with col2:
         st.subheader("Risk Impact Category")
         impact_fig = px.pie(df_filtered, names='Risk Impact Category', hole=0.4)
@@ -473,17 +476,17 @@ def run_dashboard():
     with col_wc1:
         st.subheader("Risk Description")
         if 'Risk Description' in df_filtered.columns:
-            wordcloud_fig = create_interactive_wordcloud(df_filtered['Risk Description'])
-            if wordcloud_fig:
-                st.plotly_chart(wordcloud_fig, use_container_width=True)
+            img_buf = create_wc_image(df_filtered['Risk Description'])
+            if img_buf:
+                st.image(img_buf)
             else:
                 st.info("Not enough data for Risk Description word cloud.")
     with col_wc2:
         st.subheader("Impact Description")
         if 'Impact Description' in df_filtered.columns:
-            wordcloud_fig = create_interactive_wordcloud(df_filtered['Impact Description'])
-            if wordcloud_fig:
-                st.plotly_chart(wordcloud_fig, use_container_width=True)
+            img_buf = create_wc_image(df_filtered['Impact Description'])
+            if img_buf:
+                st.image(img_buf)
             else:
                 st.info("Not enough data for Impact Description word cloud.")
     st.markdown("---")
@@ -493,7 +496,6 @@ def run_dashboard():
 
 def main():
     """Main function to handle authentication and run the app."""
-    # --- Authentication Logic ---
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
 
@@ -501,7 +503,8 @@ def main():
         """Validates credentials against st.secrets."""
         try:
             if (
-                st.session_state["password"] == st.secrets["PASSWORD"]
+                st.session_state["username"] == st.secrets["USERNAME"]
+                and st.session_state["password"] == st.secrets["PASSWORD"]
             ):
                 st.session_state.authenticated = True
             else:
@@ -511,14 +514,14 @@ def main():
     
     if not st.session_state.authenticated:
         st.title("🔐 Login")
-        #st.text_input("Username", key="username")
+        st.text_input("Username", key="username")
         st.text_input("Password", type="password", key="password")
         if st.button("Log in"):
             check_credentials()
             if not st.session_state.authenticated:
                 st.error("😕 Invalid username or password")
             else:
-                st.rerun() # Rerun to show the dashboard
+                st.rerun()
     
     if st.session_state.authenticated:
         run_dashboard()

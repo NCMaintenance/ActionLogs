@@ -378,10 +378,8 @@ def run_dashboard():
     col_hier1, col_hier2 = st.columns(2)
     with col_hier1:
         st.subheader("Sunburst View")
-        # Create a copy for the sunburst to apply wrapping without affecting other charts
         sunburst_data = df_filtered.dropna(subset=['Location of Risk Source', 'Risk Rating', 'Parent Category', 'Topical Category']).copy()
         if not sunburst_data.empty:
-            # Wrap text for each level of the sunburst
             for col in ['Location of Risk Source', 'Risk Rating', 'Parent Category', 'Topical Category']:
                  sunburst_data[col] = sunburst_data[col].astype(str).apply(lambda x: '<br>'.join(textwrap.wrap(x, width=20)))
             
@@ -431,6 +429,11 @@ def run_dashboard():
         
         links = pd.concat([sankey_df_1, sankey_df_2], axis=0).dropna(subset=['source', 'target'])
         
+        link_colors = []
+        for src_idx in links['source']:
+            color = color_map[all_nodes[int(src_idx)]]
+            link_colors.append(f"rgba({int(color[1:3], 16)}, {int(color[3:5], 16)}, {int(color[5:7], 16)}, 0.4)")
+
         fig = go.Figure(data=[go.Sankey(
             node=dict(
                 pad=25,
@@ -443,9 +446,10 @@ def run_dashboard():
             link=dict(
                 source=links['source'].astype(int),
                 target=links['target'].astype(int),
-                value=links['value']
+                value=links['value'],
+                color=link_colors
             ))])
-        fig.update_layout(title_text="Risk Flow: Source -> Rating -> Category", font_size=10, height=600, margin=dict(l=20, r=20, t=60, b=20))
+        fig.update_layout(title_text="Risk Flow: Source -> Rating -> Category", font=dict(size=10), height=600, margin=dict(l=20, r=20, t=60, b=20))
         st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -473,42 +477,39 @@ def run_dashboard():
     st.header("Geographic Risk Analysis")
     map_df = df_filtered.dropna(subset=['lat', 'lon'])
     
-    col_map1, col_map2 = st.columns(2)
-    with col_map1:
-        st.subheader("Risk Heatmap")
-        if not map_df.empty:
-            m1 = folium.Map(location=[53.4, -7.9], zoom_start=7)
-            HeatMap(data=map_df[['lat', 'lon']].values.tolist(), radius=15).add_to(m1)
-            folium_static(m1, key="heatmap_map")
-        else:
-            st.info("No geolocated data for heatmap.")
+    st.subheader("Risk Heatmap")
+    if not map_df.empty:
+        m1 = folium.Map(location=[53.4, -7.9], zoom_start=7)
+        HeatMap(data=map_df[['lat', 'lon']].values.tolist(), radius=15).add_to(m1)
+        folium_static(m1, key="heatmap_map_unique")
+    else:
+        st.info("No geolocated data for heatmap.")
     
-    with col_map2:
-        st.subheader("AI Topics by Hospital")
-        if not map_df.empty:
-            m2 = folium.Map(location=[53.4, -7.9], zoom_start=7)
-            locations = map_df.groupby(['HSE Facility', 'name', 'lat', 'lon']).size().reset_index(name='count')
-            for idx, row in locations.iterrows():
-                hospital_data = map_df[map_df['HSE Facility'] == row['HSE Facility']]
-                ai_topic_counts = hospital_data['AI-Generated Topic'].value_counts()
-                
-                b64_image = create_pie_chart_image(ai_topic_counts, title="AI Topics")
-                
-                if b64_image:
-                    html = f"""
-                    <b>{row['name']}</b><br>
-                    Total Risks: {row['count']}<br>
-                    <img src="data:image/png;base64,{b64_image}">
-                    """
-                    popup = folium.Popup(html, max_width=400)
-                    folium.Marker(
-                        [row['lat'], row['lon']],
-                        popup=popup,
-                        tooltip=row['name']
-                    ).add_to(m2)
-            folium_static(m2, key="piechart_map")
-        else:
-            st.info("No geolocated data for pie chart map.")
+    st.subheader("AI Topics by Hospital")
+    if not map_df.empty:
+        m2 = folium.Map(location=[53.4, -7.9], zoom_start=7)
+        locations = map_df.groupby(['HSE Facility', 'name', 'lat', 'lon']).size().reset_index(name='count')
+        for idx, row in locations.iterrows():
+            hospital_data = map_df[map_df['HSE Facility'] == row['HSE Facility']]
+            ai_topic_counts = hospital_data['AI-Generated Topic'].value_counts()
+            
+            b64_image = create_pie_chart_image(ai_topic_counts, title="AI Topics")
+            
+            if b64_image:
+                html = f"""
+                <b>{row['name']}</b><br>
+                Total Risks: {row['count']}<br>
+                <img src="data:image/png;base64,{b64_image}">
+                """
+                popup = folium.Popup(html, max_width=400)
+                folium.Marker(
+                    [row['lat'], row['lon']],
+                    popup=popup,
+                    tooltip=row['name']
+                ).add_to(m2)
+        folium_static(m2, key="piechart_map_unique")
+    else:
+        st.info("No geolocated data for pie chart map.")
 
     st.markdown("---")
     

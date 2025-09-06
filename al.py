@@ -1327,7 +1327,7 @@ def main():
     if st.session_state.authenticated:
         
         # Add logo to sidebar
-        logo_url = "https://www.hse.ie/image-library/hse-site-logo-2021.svg"
+        logo_url = "https://tinteanhousing.eu/wp-content/uploads/2023/03/HSE-Logo.jpg"
         st.sidebar.markdown(
             f'<img src="{logo_url}" alt="HSE Logo" style="width: 100%; margin-bottom: 20px;">',
             unsafe_allow_html=True
@@ -1354,6 +1354,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 

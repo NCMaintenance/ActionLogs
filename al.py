@@ -477,39 +477,40 @@ def run_dashboard():
     st.header("Geographic Risk Analysis")
     map_df = df_filtered.dropna(subset=['lat', 'lon'])
     
-    st.subheader("Risk Heatmap")
+    # --- NEW: Single Map with Radio Button Toggle ---
+    map_view = st.radio(
+        "Select Geographic View:",
+        ('Risk Heatmap', 'AI Topics by Hospital'),
+        horizontal=True
+    )
+
     if not map_df.empty:
-        m1 = folium.Map(location=[53.4, -7.9], zoom_start=7)
-        HeatMap(data=map_df[['lat', 'lon']].values.tolist(), radius=15).add_to(m1)
-        folium_static(m1, key="heatmap_map_unique")
+        m = folium.Map(location=[53.4, -7.9], zoom_start=7)
+        if map_view == 'Risk Heatmap':
+            HeatMap(data=map_df[['lat', 'lon']].values.tolist(), radius=15).add_to(m)
+        else: # AI Topics by Hospital
+            locations = map_df.groupby(['HSE Facility', 'name', 'lat', 'lon']).size().reset_index(name='count')
+            for idx, row in locations.iterrows():
+                hospital_data = map_df[map_df['HSE Facility'] == row['HSE Facility']]
+                ai_topic_counts = hospital_data['AI-Generated Topic'].value_counts()
+                
+                b64_image = create_pie_chart_image(ai_topic_counts, title="AI Topics")
+                
+                if b64_image:
+                    html = f"""
+                    <b>{row['name']}</b><br>
+                    Total Risks: {row['count']}<br>
+                    <img src="data:image/png;base64,{b64_image}">
+                    """
+                    popup = folium.Popup(html, max_width=400)
+                    folium.Marker(
+                        [row['lat'], row['lon']],
+                        popup=popup,
+                        tooltip=row['name']
+                    ).add_to(m)
+        folium_static(m, key="unified_map")
     else:
-        st.info("No geolocated data for heatmap.")
-    
-    st.subheader("AI Topics by Hospital")
-    if not map_df.empty:
-        m2 = folium.Map(location=[53.4, -7.9], zoom_start=7)
-        locations = map_df.groupby(['HSE Facility', 'name', 'lat', 'lon']).size().reset_index(name='count')
-        for idx, row in locations.iterrows():
-            hospital_data = map_df[map_df['HSE Facility'] == row['HSE Facility']]
-            ai_topic_counts = hospital_data['AI-Generated Topic'].value_counts()
-            
-            b64_image = create_pie_chart_image(ai_topic_counts, title="AI Topics")
-            
-            if b64_image:
-                html = f"""
-                <b>{row['name']}</b><br>
-                Total Risks: {row['count']}<br>
-                <img src="data:image/png;base64,{b64_image}">
-                """
-                popup = folium.Popup(html, max_width=400)
-                folium.Marker(
-                    [row['lat'], row['lon']],
-                    popup=popup,
-                    tooltip=row['name']
-                ).add_to(m2)
-        folium_static(m2, key="piechart_map_unique")
-    else:
-        st.info("No geolocated data for pie chart map.")
+        st.info("No geolocated data available for the current filters.")
 
     st.markdown("---")
     

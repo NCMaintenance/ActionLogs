@@ -108,13 +108,13 @@ st.markdown("""
 # --- Professional Constants ---
 class AppConfig:
     """Application configuration constants"""
-    APP_VERSION = "2.0.0"
+    APP_VERSION = "2.1.0"
     APP_NAME = "HSE Risk Analysis Dashboard"
     AUTHOR = "Healthcare Risk Management Team"
-    LAST_UPDATED = "January 2025"
+    LAST_UPDATED = "September 2025"
     
-    # Color schemes for consistent branding
-    COLORS = {
+    # Colour schemes for consistent branding
+    COLOURS = {
         'primary': '#1f4e79',
         'secondary': '#28a745',
         'danger': '#dc3545',
@@ -124,7 +124,7 @@ class AppConfig:
         'dark': '#343a40'
     }
     
-    RISK_COLORS = {
+    RISK_COLOURS = {
         'High': '#dc3545',
         'Medium': '#ffc107', 
         'Low': '#28a745'
@@ -275,10 +275,6 @@ def load_and_merge_data(uploaded_file) -> Optional[pd.DataFrame]:
             # Process each sheet
             for i, sheet_name in enumerate(sheet_names):
                 try:
-                    # Update progress
-                    progress = (i + 1) / len(sheet_names)
-                    st.progress(progress)
-                    
                     df_sheet = pd.read_excel(xls, sheet_name=sheet_name, header=2)
                     
                     # Data validation
@@ -305,9 +301,6 @@ def load_and_merge_data(uploaded_file) -> Optional[pd.DataFrame]:
                     processing_errors.append(error_msg)
                     logger.error(error_msg)
 
-            # Clear progress bar
-            st.empty()
-            
             # Show processing results
             if processing_errors:
                 show_warning_message(f"Some sheets had issues: {'; '.join(processing_errors)}")
@@ -320,7 +313,7 @@ def load_and_merge_data(uploaded_file) -> Optional[pd.DataFrame]:
             merged_df = pd.concat(all_sheets_df, ignore_index=True)
             merged_df.columns = merged_df.columns.str.strip()
 
-            # Data cleaning and standardization
+            # Data cleaning and standardisation
             if 'Risk Rating' in merged_df.columns:
                 merged_df['Risk Rating'] = merged_df['Risk Rating'].astype(str).str.strip()
                 rating_map = {'Hign': 'High', 'Med': 'Medium'}
@@ -328,7 +321,7 @@ def load_and_merge_data(uploaded_file) -> Optional[pd.DataFrame]:
 
             if 'Risk Impact Category' in merged_df.columns:
                 merged_df['Risk Impact Category'] = merged_df['Risk Impact Category'].astype(str).str.strip()
-                # Standardize impact categories
+                # Standardise impact categories
                 category_replacements = {
                     r'Loos of Trust / confidence|loss of Confidence': 'Loss of Confidence / Trust',
                     r'Harm to Perso.*': 'Harm to Person'
@@ -377,7 +370,7 @@ def assign_gemini_topics_batch(_df: pd.DataFrame, api_key: str) -> pd.DataFrame:
         model = genai.GenerativeModel(model_name='gemini-1.5-flash-latest')
     except Exception as e:
         logger.error(f"Gemini API configuration failed: {e}")
-        show_error_message("AI service configuration failed. Using default categorization.")
+        show_error_message("AI service configuration failed. Using default categorisation.")
         df['AI-Generated Topic'] = "Other"
         return df
     
@@ -392,12 +385,12 @@ def assign_gemini_topics_batch(_df: pd.DataFrame, api_key: str) -> pd.DataFrame:
         return df
 
     try:
-        with show_loading_spinner(f"AI is analyzing {len(unique_topics)} unique risk categories..."):
+        with show_loading_spinner(f"AI is analysing {len(unique_topics)} unique risk categories..."):
             categories_str = "\n".join(f"- {cat}" for cat in MAIN_CATEGORIES)
             unique_topics_json = json.dumps(unique_topics)
 
             prompt = f"""
-            You are an expert healthcare risk classification system. Analyze the following risk categories and classify each into the most appropriate predefined category.
+            You are an expert healthcare risk classification system. Analyse the following risk categories and classify each into the most appropriate predefined category.
             
             **Predefined Categories:**
             {categories_str}
@@ -460,7 +453,7 @@ def assign_gemini_topics_batch(_df: pd.DataFrame, api_key: str) -> pd.DataFrame:
                         
     except Exception as e:
         logger.error(f"AI classification failed after retries: {e}")
-        show_warning_message("AI classification encountered issues. Using default categorization.")
+        show_warning_message("AI classification encountered issues. Using default categorisation.")
         df['AI-Generated Topic'] = "Other"
         return df
 
@@ -544,7 +537,7 @@ def get_hospital_locations_batch(_df: pd.DataFrame, api_key: str) -> pd.DataFram
     
     return df
 
-# --- Enhanced Visualization Functions ---
+# --- Enhanced Visualisation Functions ---
 def create_professional_wordcloud(text_series: pd.Series, title: str) -> Optional[io.BytesIO]:
     """Generate professional word cloud with custom styling"""
     full_text = ' '.join(text_series.dropna().astype(str))
@@ -636,7 +629,7 @@ def create_professional_filters(df: pd.DataFrame) -> Dict:
     st.sidebar.markdown("**🏥 Healthcare Facilities**")
     facility_options = sorted(df['HSE Facility'].unique())
     filters['facilities'] = st.sidebar.multiselect(
-        "Select facilities to analyze:",
+        "Select facilities to analyse:",
         options=facility_options,
         default=facility_options,
         help="Choose specific HSE facilities to include in the analysis"
@@ -752,7 +745,7 @@ def create_risk_distribution_analysis(df: pd.DataFrame) -> None:
             labels={'x': 'Risk Priority Level', 'y': 'Number of Risks'},
             title="Risk Priority Breakdown",
             color=rating_counts.index,
-            color_discrete_map=AppConfig.RISK_COLORS
+            color_discrete_map=AppConfig.RISK_COLOURS
         )
         fig_rating.update_layout(showlegend=False, xaxis_title="Risk Priority Level", yaxis_title="Count")
         st.plotly_chart(fig_rating, use_container_width=True)
@@ -804,9 +797,9 @@ def create_geographic_analysis(df: pd.DataFrame) -> None:
         st.subheader("Risk Distribution Heatmap")
         
         # Create risk heatmap
-        center_lat, center_lon = 53.4, -7.9
+        centre_lat, centre_lon = 53.4, -7.9
         m = folium.Map(
-            location=[center_lat, center_lon], 
+            location=[centre_lat, centre_lon], 
             zoom_start=7,
             tiles='OpenStreetMap'
         )
@@ -868,100 +861,55 @@ def create_geographic_analysis(df: pd.DataFrame) -> None:
             )
 
 def create_advanced_analytics(df: pd.DataFrame) -> None:
-    """Create advanced analytics section"""
+    """Create advanced analytics section with a Sankey Diagram."""
     st.markdown('<div class="section-header"><h3>🔬 Advanced Analytics</h3></div>', unsafe_allow_html=True)
     
-    # Enhanced hierarchical analysis
-    df_clean = df.dropna(subset=['Location of Risk Source', 'Risk Rating', 'AI-Generated Topic'])
-    
-    if df_clean.empty:
-        show_info_message("Insufficient data for advanced analytics.")
+    st.subheader("📊 Risk Flow Analysis (Sankey Diagram)")
+
+    # Check for necessary columns
+    required_cols = ['Location of Risk Source', 'Risk Rating', 'Parent Category']
+    if not all(col in df.columns for col in required_cols):
+        show_info_message("Insufficient data for the Risk Flow Analysis. Required columns are missing.")
         return
+
+    sankey_data = df.dropna(subset=required_cols)
     
-    col1, col2 = st.columns(2)
+    if sankey_data.empty:
+        show_info_message("No data available to generate the Risk Flow Analysis chart.")
+        return
+        
+    all_nodes = list(pd.unique(sankey_data[required_cols].values.ravel('K')))
+    node_map = {node: i for i, node in enumerate(all_nodes)}
+    palette = px.colors.qualitative.Plotly
+    color_map = {node: palette[i % len(palette)] for i, node in enumerate(all_nodes)}
     
-    with col1:
-        st.subheader("📊 Risk Flow Analysis (Sankey Diagram)")
-        
-        # Create Sankey diagram data
-        nodes_source = sorted(df_clean['Location of Risk Source'].unique())
-        nodes_rating = sorted(df_clean['Risk Rating'].unique())
-        nodes_topic = sorted(df_clean['AI-Generated Topic'].unique())
-        
-        all_nodes = nodes_source + nodes_rating + nodes_topic
-        node_indices = {node: i for i, node in enumerate(all_nodes)}
-        
-        # Create links
-        links_1 = df_clean.groupby(['Location of Risk Source', 'Risk Rating']).size().reset_index(name='value')
-        links_1['source'] = links_1['Location of Risk Source'].map(node_indices)
-        links_1['target'] = links_1['Risk Rating'].map(node_indices)
-        
-        links_2 = df_clean.groupby(['Risk Rating', 'AI-Generated Topic']).size().reset_index(name='value')
-        links_2['source'] = links_2['Risk Rating'].map(node_indices)  
-        links_2['target'] = links_2['AI-Generated Topic'].map(node_indices)
-        
-        all_links = pd.concat([links_1[['source', 'target', 'value']], 
-                              links_2[['source', 'target', 'value']]], ignore_index=True)
-        
-        # Create Sankey
-        fig_sankey = go.Figure(data=[go.Sankey(
-            node=dict(
-                pad=15,
-                thickness=20,
-                line=dict(color="black", width=0.5),
-                label=all_nodes,
-                color="lightblue"
-            ),
-            link=dict(
-                source=all_links['source'],
-                target=all_links['target'],
-                value=all_links['value']
-            )
-        )])
-        
-        fig_sankey.update_layout(
-            title_text="Risk Flow: Source → Priority → Category",
-            font_size=10,
-            height=400
+    links_1 = sankey_data.groupby(['Location of Risk Source', 'Risk Rating']).size().reset_index(name='value')
+    links_1.columns = ['source_col', 'target_col', 'value']
+
+    links_2 = sankey_data.groupby(['Risk Rating', 'Parent Category']).size().reset_index(name='value')
+    links_2.columns = ['source_col', 'target_col', 'value']
+
+    links = pd.concat([links_1, links_2], axis=0, ignore_index=True)
+    
+    fig = go.Figure(data=[go.Sankey(
+        node=dict(
+            pad=25, 
+            thickness=20, 
+            line=dict(color="black", width=0.5), 
+            label=all_nodes, 
+            color=[color_map[n] for n in all_nodes]
+        ),
+        link=dict(
+            source=links['source_col'].map(node_map),
+            target=links['target_col'].map(node_map),
+            value=links['value'],
+            color=[f"rgba({int(color_map[src][1:3], 16)}, {int(color_map[src][3:5], 16)}, {int(color_map[src][5:7], 16)}, 0.4)" for src in links['source_col']]
         )
-        st.plotly_chart(fig_sankey, use_container_width=True)
+    )])
     
-    with col2:
-        st.subheader("🎯 Risk Correlation Matrix")
-        
-        # Create correlation analysis
-        df_encoded = df_clean.copy()
-        
-        # Encode categorical variables
-        from sklearn.preprocessing import LabelEncoder
-        
-        categorical_cols = ['Location of Risk Source', 'Risk Rating', 'AI-Generated Topic', 'HSE Facility']
-        encoders = {}
-        
-        for col in categorical_cols:
-            if col in df_encoded.columns:
-                encoders[col] = LabelEncoder()
-                df_encoded[f'{col}_encoded'] = encoders[col].fit_transform(df_encoded[col])
-        
-        # Calculate correlation matrix
-        corr_cols = [f'{col}_encoded' for col in categorical_cols if f'{col}_encoded' in df_encoded.columns]
-        if len(corr_cols) > 1:
-            corr_matrix = df_encoded[corr_cols].corr()
-            
-            # Rename columns for display
-            display_names = [col.replace('_encoded', '') for col in corr_cols]
-            corr_matrix.index = display_names
-            corr_matrix.columns = display_names
-            
-            fig_corr = px.imshow(
-                corr_matrix,
-                text_auto=True,
-                aspect="auto",
-                color_continuous_scale='RdBu',
-                title="Risk Factor Correlations"
-            )
-            fig_corr.update_layout(height=400)
-            st.plotly_chart(fig_corr, use_container_width=True)
+    fig.update_layout(title_text="Risk Flow: Source → Priority → Category", font=dict(size=12), height=500)
+    st.plotly_chart(fig, use_container_width=True)
+
 
 def create_text_analytics(df: pd.DataFrame) -> None:
     """Create enhanced text analytics section"""
@@ -1019,7 +967,7 @@ def create_text_analytics(df: pd.DataFrame) -> None:
             total_words += df[col].astype(str).str.split().str.len().sum()
     
     with text_metrics_cols[3]:
-        st.metric("Total Words Analyzed", f"{total_words:,}")
+        st.metric("Total Words Analysed", f"{total_words:,}")
 
 def create_executive_summary(df: pd.DataFrame) -> None:
     """Create executive summary section"""
@@ -1056,9 +1004,9 @@ def create_executive_summary(df: pd.DataFrame) -> None:
     
     **Recommendations:**
     1. **Immediate Action Required:** Focus on {high_priority} high-priority risks
-    2. **Category Focus:** Prioritize improvements in {top_category} systems  
+    2. **Category Focus:** Prioritise improvements in {top_category} systems  
     3. **Facility Support:** Provide additional resources to {top_facility}
-    4. **Systematic Review:** Implement standardized risk assessment protocols
+    4. **Systematic Review:** Implement standardised risk assessment protocols
     """
     
     st.markdown(summary_text)
@@ -1094,8 +1042,8 @@ def create_data_quality_report(df: pd.DataFrame) -> None:
         completeness_df = pd.DataFrame(completeness_data)
         completeness_df = completeness_df.sort_values('Completeness %', ascending=False)
         
-        # Color code based on completeness
-        def color_completeness(val):
+        # Colour code based on completeness
+        def colour_completeness(val):
             if val >= 90:
                 return 'background-color: #d4edda'  # Green
             elif val >= 70:
@@ -1104,7 +1052,7 @@ def create_data_quality_report(df: pd.DataFrame) -> None:
                 return 'background-color: #f8d7da'  # Red
         
         styled_df = completeness_df.style.applymap(
-            color_completeness, 
+            colour_completeness, 
             subset=['Completeness %']
         ).format({'Completeness %': '{:.1f}%'})
         
@@ -1169,7 +1117,7 @@ def run_professional_dashboard():
             This professional risk analysis dashboard provides:
             
             **🔧 Features:**
-            - AI-powered risk categorization using Google Gemini
+            - AI-powered risk categorisation using Google Gemini
             - Interactive geographic risk mapping
             - Advanced text analytics and word clouds  
             - Hierarchical risk flow analysis
@@ -1181,12 +1129,11 @@ def run_professional_dashboard():
             - Priority-based risk assessment
             - Geographic hotspot identification
             - Text mining of risk descriptions
-            - Correlation analysis between risk factors
             
             **🚀 Getting Started:**
             1. Upload your Excel file with risk data
             2. Use the sidebar filters to focus your analysis
-            3. Explore the interactive visualizations
+            3. Explore the interactive visualisations
             4. Review the executive summary for key insights
             """)
         return
@@ -1285,7 +1232,7 @@ def run_professional_dashboard():
 def main():
     """Enhanced main function with professional authentication"""
     
-    # Initialize session state
+    # Initialise session state
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
     
@@ -1321,7 +1268,7 @@ def main():
                 "🔑 Access Password",
                 type="password",
                 key="password",
-                help="Enter your authorized access password"
+                help="Enter your authorised access password"
             )
             
             login_button = st.button(
@@ -1354,7 +1301,7 @@ def main():
         
         # Sidebar authentication status
         st.sidebar.success("🟢 Authenticated")
-        st.sidebar.markdown(f"**User:** Authorized Personnel")
+        st.sidebar.markdown(f"**User:** Authorised Personnel")
         st.sidebar.markdown(f"**Session:** Active")
         
         if st.sidebar.button("🚪 Logout", help="End your session and return to login"):

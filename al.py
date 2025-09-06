@@ -50,12 +50,22 @@ st.set_page_config(
 st.markdown("""
 <style>
     .main-header {
-        background: linear-gradient(90deg, #1f4e79 0%, #2e5f8a 100%);
-        padding: 2rem 0;
+        background-color: #009639; /* HSE Green */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem 0;
         margin: -1rem -1rem 2rem -1rem;
         color: white;
         text-align: center;
         border-radius: 0 0 10px 10px;
+    }
+    .main-header img {
+        height: 50px;
+        margin-right: 20px;
+    }
+    .main-header-text {
+        text-align: left;
     }
     
     .metric-container {
@@ -63,7 +73,7 @@ st.markdown("""
         padding: 1rem;
         border-radius: 10px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        border-left: 4px solid #1f4e79;
+        border-left: 4px solid #009639; /* HSE Green */
         margin: 0.5rem 0;
     }
     
@@ -115,7 +125,7 @@ class AppConfig:
     
     # Colour schemes for consistent branding
     COLOURS = {
-        'primary': '#1f4e79',
+        'primary': '#009639',
         'secondary': '#28a745',
         'danger': '#dc3545',
         'warning': '#ffc107',
@@ -187,11 +197,17 @@ def download_nltk_stopwords() -> None:
 
 def show_professional_header() -> None:
     """Display professional header with branding"""
+    logo_url = "https://www.hse.ie/eng/about/who/communications/branding/logo/hse-logo-eng.png"
     st.markdown(f"""
     <div class="main-header">
-        <h1>🏥 {AppConfig.APP_NAME}</h1>
-        <p>Professional Healthcare Risk Management & Analytics Platform</p>
-        <small>Version {AppConfig.APP_VERSION} | Last Updated: {AppConfig.LAST_UPDATED}</small>
+        <img src="{logo_url}" alt="HSE Logo">
+        <div class="main-header-text">
+            <h1 style="margin: 0; font-size: 2.2rem;">{AppConfig.APP_NAME}</h1>
+            <p style="margin: 0;">Professional Healthcare Risk Management & Analytics Platform</p>
+        </div>
+    </div>
+    <div style="text-align: center; margin-top: -1.5rem; margin-bottom: 2rem;">
+         <small>Version {AppConfig.APP_VERSION} | Last Updated: {AppConfig.LAST_UPDATED}</small>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1325,5 +1341,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 

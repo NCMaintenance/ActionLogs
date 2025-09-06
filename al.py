@@ -340,6 +340,15 @@ def load_and_merge_data(uploaded_file) -> Optional[pd.DataFrame]:
                 merged_df = merged_df[merged_df['Location of Risk Source'].str.strip() != '']
                 merged_df.reset_index(drop=True, inplace=True)
 
+            # Fill NaN values in key categorical columns to prevent errors
+            logger.info("Filling missing values in key categorical columns.")
+            categorical_cols_to_fill = [
+                'Risk Rating', 'Risk Impact Category', 'Location of Risk Source', 'Topical Category'
+            ]
+            for col in categorical_cols_to_fill:
+                if col in merged_df.columns:
+                    merged_df[col].fillna('Unknown', inplace=True)
+
             processing_time = time.time() - start_time
             logger.info(f"Data processing completed in {processing_time:.2f} seconds")
             
@@ -850,15 +859,27 @@ def create_geographic_analysis(df: pd.DataFrame) -> None:
         # Top facilities by risk count
         st.subheader("Facilities by Risk Count")
         facility_summary = map_df.groupby(['HSE Facility', 'name']).size().reset_index(name='Total Risks')
-        facility_summary = facility_summary.sort_values('Total Risks', ascending=False).head(10)
+        facility_summary = facility_summary.sort_values('Total Risks', ascending=False)
         
-        for _, row in facility_summary.iterrows():
-            facility_name = row['name'] if pd.notna(row['name']) else row['HSE Facility']
-            st.metric(
-                label=f"{row['HSE Facility']}",
-                value=row['Total Risks'],
-                help=facility_name
-            )
+        # Use full name if available, otherwise facility code
+        facility_summary['display_name'] = facility_summary['name'].fillna(facility_summary['HSE Facility'])
+
+        fig_donut = px.pie(
+            facility_summary,
+            names='display_name',
+            values='Total Risks',
+            hole=0.4,
+            title="Risk Distribution by Facility",
+            color_discrete_sequence=px.colors.qualitative.Pastel
+        )
+        fig_donut.update_traces(textposition='inside', textinfo='percent+label', pull=[0.05] * len(facility_summary))
+        fig_donut.update_layout(
+            showlegend=False,
+            font=dict(size=12),
+            height=400,
+            margin=dict(t=50, b=0, l=0, r=0)
+        )
+        st.plotly_chart(fig_donut, use_container_width=True)
 
 def create_advanced_analytics(df: pd.DataFrame) -> None:
     """Create advanced analytics section with a Sankey Diagram."""
@@ -925,7 +946,7 @@ def create_text_analytics(df: pd.DataFrame) -> None:
                 "Most Common Terms in Risk Descriptions"
             )
             if wc_img:
-                st.image(wc_img, use_column_width=True)
+                st.image(wc_img, use_container_width=True)
             else:
                 show_info_message("Insufficient text data for Risk Description word cloud.")
     
@@ -937,7 +958,7 @@ def create_text_analytics(df: pd.DataFrame) -> None:
                 "Most Common Terms in Impact Descriptions"
             )
             if wc_img:
-                st.image(wc_img, use_column_width=True)
+                st.image(wc_img, use_container_width=True)
             else:
                 show_info_message("Insufficient text data for Impact Description word cloud.")
     
@@ -1320,3 +1341,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

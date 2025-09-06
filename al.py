@@ -840,22 +840,6 @@ def create_geographic_analysis(df: pd.DataFrame) -> None:
         folium_static(m, height=500)
     
     with col2:
-        st.subheader("Regional Summary")
-        
-        # Regional analysis if region data is available
-        if 'region' in map_df.columns:
-            regional_summary = map_df.groupby('region').agg({
-                'HSE Facility': 'nunique',
-                'Risk Rating': lambda x: (x == 'High').sum()
-            }).reset_index()
-            regional_summary.columns = ['Region', 'Facilities', 'High Risk Count']
-            
-            st.dataframe(
-                regional_summary,
-                use_container_width=True,
-                hide_index=True
-            )
-        
         # Top facilities by risk count
         st.subheader("Facilities by Risk Count")
         facility_summary = map_df.groupby(['HSE Facility', 'name']).size().reset_index(name='Total Risks')
@@ -928,7 +912,7 @@ def create_advanced_analytics(df: pd.DataFrame) -> None:
         )
     )])
     
-    fig.update_layout(title_text="Risk Flow: Source → Priority → Category", font=dict(size=12), height=500)
+    fig.update_layout(title_text="Risk Flow: Source → Priority → Category", font=dict(size=12), height=1000)
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -1341,4 +1325,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 

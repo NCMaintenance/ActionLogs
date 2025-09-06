@@ -12,17 +12,16 @@ import google.generativeai as genai
 import io
 import json
 import folium
-from streamlit_folium import folium_static
 from folium.plugins import HeatMap
 import sys
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
+import streamlit.components.v1 as components
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
 import time
 
-# Configure logging
+# --- Logging Configuration ---
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -46,7 +45,7 @@ st.set_page_config(
     }
 )
 
-# Custom CSS for professional styling
+# --- Professional Styling ---
 st.markdown("""
 <style>
     .main-header {
@@ -57,44 +56,13 @@ st.markdown("""
         text-align: center;
         border-radius: 0 0 10px 10px;
     }
-    
-    .metric-container {
-        background: white;
-        padding: 1rem;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        border-left: 4px solid #1f4e79;
-        margin: 0.5rem 0;
-    }
-    
     .section-header {
         background: #f8f9fa;
         padding: 1rem;
         border-radius: 8px;
         margin: 1rem 0;
-        border-left: 4px solid #28a745;
+        border-left: 4px solid #1f4e79;
     }
-    
-    .alert-box {
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 1rem 0;
-        border: 1px solid #dee2e6;
-    }
-    
-    .alert-success { background-color: #d4edda; border-color: #c3e6cb; color: #155724; }
-    .alert-warning { background-color: #fff3cd; border-color: #ffeaa7; color: #856404; }
-    .alert-danger { background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; }
-    .alert-info { background-color: #cce7ff; border-color: #b3d9ff; color: #004085; }
-    
-    .sidebar .sidebar-content {
-        background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
-    }
-    
-    .stSelectbox > div > div {
-        border-radius: 8px;
-    }
-    
     .footer {
         text-align: center;
         padding: 2rem;
@@ -107,1269 +75,350 @@ st.markdown("""
 
 # --- Professional Constants ---
 class AppConfig:
-    """Application configuration constants"""
     APP_VERSION = "2.0.0"
     APP_NAME = "HSE Risk Analysis Dashboard"
-    AUTHOR = "Healthcare Risk Management Team"
-    LAST_UPDATED = "January 2025"
-    
-    # Color schemes for consistent branding
-    COLORS = {
-        'primary': '#1f4e79',
-        'secondary': '#28a745',
-        'danger': '#dc3545',
-        'warning': '#ffc107',
-        'info': '#17a2b8',
-        'light': '#f8f9fa',
-        'dark': '#343a40'
-    }
-    
-    RISK_COLORS = {
-        'High': '#dc3545',
-        'Medium': '#ffc107', 
-        'Low': '#28a745'
-    }
 
-# --- Enhanced Hospital Locations ---
+# --- Predefined Hospital Locations ---
 HOSPITAL_LOCATIONS = {
-    "UHK": {"name": "University Hospital Kerry", "lat": 52.268, "lon": -9.692, "region": "South"},
-    "MRTH": {"name": "Midlands Regional Hospital Tullamore", "lat": 53.279, "lon": -7.493, "region": "Midlands"},
-    "CGH": {"name": "Cavan General Hospital", "lat": 53.983, "lon": -7.366, "region": "Northeast"},
-    "LCH": {"name": "Louth County Hospital", "lat": 54.005, "lon": -6.398, "region": "Northeast"},
-    "STJ": {"name": "St James's Hospital", "lat": 53.337, "lon": -6.301, "region": "Dublin"},
-    "MRHP": {"name": "Midlands Regional Hospital Portlaoise", "lat": 53.036, "lon": -7.301, "region": "Midlands"},
-    "BGH": {"name": "Bantry General Hospital", "lat": 51.681, "lon": -9.455, "region": "Southwest"},
-    "NGH": {"name": "Nenagh General Hospital", "lat": 52.863, "lon": -8.204, "region": "Midwest"},
-    "TUH": {"name": "Tipperary University Hospital", "lat": 52.358, "lon": -7.711, "region": "Midwest"},
-    "WGH": {"name": "Wexford General Hospital", "lat": 52.342, "lon": -6.475, "region": "Southeast"},
-    "Sligo": {"name": "Sligo University Hospital", "lat": 54.2743, "lon": -8.4621, "region": "Northwest"},
-    "LHK": {"name": "Letterkenny University Hospital", "lat": 54.949, "lon": -7.749, "region": "Northwest"},
-    "MPRH": {"name": "Merlin Park University Hospital", "lat": 53.280, "lon": -9.006, "region": "West"}
+    "UHK": {"name": "University Hospital Kerry", "lat": 52.268, "lon": -9.692},
+    "MRTH": {"name": "Midlands Regional Hospital Tullamore", "lat": 53.279, "lon": -7.493},
+    "CGH": {"name": "Cavan General Hospital", "lat": 53.983, "lon": -7.366},
+    "LCH": {"name": "Louth County Hospital", "lat": 54.005, "lon": -6.398},
+    "STJ": {"name": "St James's Hospital", "lat": 53.337, "lon": -6.301},
+    "MRHP": {"name": "Midlands Regional Hospital Portlaoise", "lat": 53.036, "lon": -7.301},
+    "BGH": {"name": "Bantry General Hospital", "lat": 51.681, "lon": -9.455},
+    "NGH": {"name": "Nenagh General Hospital", "lat": 52.863, "lon": -8.204},
+    "TUH": {"name": "Tipperary University Hospital", "lat": 52.358, "lon": -7.711},
+    "WGH": {"name": "Wexford General Hospital", "lat": 52.342, "lon": -6.475},
+    "Sligo": {"name": "Sligo University Hospital", "lat": 54.2743, "lon": -8.4621},
+    "LHK": {"name": "Letterkenny University Hospital", "lat": 54.949, "lon": -7.749},
+    "MPRH": {"name": "Merlin Park University Hospital", "lat": 53.280, "lon": -9.006}
 }
 
+# --- Gemini AI Categories ---
 MAIN_CATEGORIES = [
     "Infrastructure, Equipment & Maintenance",
-    "Water Quality & Pressure", 
+    "Water Quality & Pressure",
     "Governance, Communication & Procedures",
     "Procurement & Contractor Management",
     "Other"
 ]
 
-# --- Professional Error Handling ---
-class DashboardError(Exception):
-    """Custom exception for dashboard-specific errors"""
-    pass
-
-class DataProcessingError(DashboardError):
-    """Exception for data processing errors"""
-    pass
-
-class APIError(DashboardError):
-    """Exception for API-related errors"""
-    pass
-
-# --- Enhanced Helper Functions ---
+# --- Helper Functions ---
 @st.cache_resource
-def download_nltk_stopwords() -> None:
-    """Downloads NLTK stopwords with professional error handling."""
+def download_nltk_stopwords():
     try:
         nltk.data.find('corpora/stopwords')
-        logger.info("NLTK stopwords already available")
     except LookupError:
-        with st.spinner("Downloading required language resources..."):
+        nltk.download('stopwords', quiet=True)
+
+def load_and_merge_data(uploaded_file):
+    try:
+        xls = pd.ExcelFile(uploaded_file)
+        sheet_names = xls.sheet_names
+        all_sheets_df = []
+        for sheet_name in sheet_names:
             try:
-                nltk.download('stopwords', quiet=True)
-                logger.info("Successfully downloaded NLTK stopwords")
+                df_sheet = pd.read_excel(xls, sheet_name=sheet_name, header=2)
+                df_sheet.dropna(how='all', inplace=True)
+                columns_to_unmerge = df_sheet.columns[:11]
+                for col in columns_to_unmerge:
+                    df_sheet[col] = df_sheet[col].ffill()
+                df_sheet['HSE Facility'] = sheet_name
+                all_sheets_df.append(df_sheet)
             except Exception as e:
-                logger.error(f"Failed to download NLTK stopwords: {e}")
-                st.error("Failed to download required resources. Please contact support.")
-                raise
+                st.warning(f"Could not process sheet: '{sheet_name}'. Error: {e}")
+        
+        if not all_sheets_df:
+            st.error("No data could be processed from the uploaded file.")
+            return None
 
-def show_professional_header() -> None:
-    """Display professional header with branding"""
-    st.markdown(f"""
-    <div class="main-header">
-        <h1>🏥 {AppConfig.APP_NAME}</h1>
-        <p>Professional Healthcare Risk Management & Analytics Platform</p>
-        <small>Version {AppConfig.APP_VERSION} | Last Updated: {AppConfig.LAST_UPDATED}</small>
-    </div>
-    """, unsafe_allow_html=True)
+        merged_df = pd.concat(all_sheets_df, ignore_index=True)
+        merged_df.columns = merged_df.columns.str.strip()
 
-def show_loading_spinner(text: str = "Processing...") -> None:
-    """Show consistent loading spinner"""
-    return st.spinner(f"⚙️ {text}")
+        if 'Risk Rating' in merged_df.columns:
+            merged_df['Risk Rating'] = merged_df['Risk Rating'].str.strip()
+            merged_df['Risk Rating'].replace({'Hign': 'High', 'Med': 'Medium'}, inplace=True)
 
-def show_success_message(message: str) -> None:
-    """Display professional success message"""
-    st.markdown(f"""
-    <div class="alert-box alert-success">
-        <strong>✅ Success:</strong> {message}
-    </div>
-    """, unsafe_allow_html=True)
+        if 'Risk Impact Category' in merged_df.columns:
+            merged_df['Risk Impact Category'] = merged_df['Risk Impact Category'].str.strip()
+            merged_df['Risk Impact Category'].replace(to_replace=r'Loos of Trust / confidence|loss of Confidence', value='Loss of Confidence / Trust', regex=True, inplace=True)
+            merged_df['Risk Impact Category'].replace(to_replace=r'Harm to Perso.*', value='Harm to Person', regex=True, inplace=True)
 
-def show_warning_message(message: str) -> None:
-    """Display professional warning message"""
-    st.markdown(f"""
-    <div class="alert-box alert-warning">
-        <strong>⚠️ Warning:</strong> {message}
-    </div>
-    """, unsafe_allow_html=True)
+        if 'Location of Risk Source' in merged_df.columns:
+            merged_df['Location of Risk Source'] = merged_df['Location of Risk Source'].astype(str).str.strip()
+            merged_df = merged_df.assign(**{'Location of Risk Source': merged_df['Location of Risk Source'].str.split('/')}).explode('Location of Risk Source')
+            merged_df['Location of Risk Source'] = merged_df['Location of Risk Source'].str.strip()
+            merged_df = merged_df[~merged_df['Location of Risk Source'].isin(['', 'nan'])]
+            merged_df.reset_index(drop=True, inplace=True)
 
-def show_error_message(message: str) -> None:
-    """Display professional error message"""
-    st.markdown(f"""
-    <div class="alert-box alert-danger">
-        <strong>❌ Error:</strong> {message}
-    </div>
-    """, unsafe_allow_html=True)
-
-def show_info_message(message: str) -> None:
-    """Display professional info message"""
-    st.markdown(f"""
-    <div class="alert-box alert-info">
-        <strong>ℹ️ Info:</strong> {message}
-    </div>
-    """, unsafe_allow_html=True)
-
-def validate_uploaded_file(uploaded_file) -> bool:
-    """Validate uploaded file meets requirements"""
-    if uploaded_file is None:
-        return False
-    
-    # Check file size (max 10MB)
-    if uploaded_file.size > 10 * 1024 * 1024:
-        show_error_message("File size exceeds 10MB limit. Please upload a smaller file.")
-        return False
-    
-    # Check file extension
-    if not uploaded_file.name.lower().endswith('.xlsx'):
-        show_error_message("Please upload an Excel file with .xlsx extension.")
-        return False
-    
-    return True
-
-def load_and_merge_data(uploaded_file) -> Optional[pd.DataFrame]:
-    """
-    Enhanced data loading with comprehensive error handling and validation
-    """
-    if not validate_uploaded_file(uploaded_file):
-        return None
-    
-    try:
-        with show_loading_spinner("Loading and validating Excel file..."):
-            start_time = time.time()
-            
-            # Read Excel file
-            xls = pd.ExcelFile(uploaded_file)
-            sheet_names = xls.sheet_names
-            
-            if not sheet_names:
-                show_error_message("The uploaded Excel file contains no worksheets.")
-                return None
-            
-            logger.info(f"Found {len(sheet_names)} worksheets: {sheet_names}")
-            
-            all_sheets_df = []
-            processing_errors = []
-
-            # Process each sheet
-            for i, sheet_name in enumerate(sheet_names):
-                try:
-                    # Update progress
-                    progress = (i + 1) / len(sheet_names)
-                    st.progress(progress)
-                    
-                    df_sheet = pd.read_excel(xls, sheet_name=sheet_name, header=2)
-                    
-                    # Data validation
-                    if df_sheet.empty:
-                        logger.warning(f"Sheet '{sheet_name}' is empty, skipping...")
-                        continue
-                    
-                    # Clean the data
-                    df_sheet.dropna(how='all', inplace=True)
-                    
-                    # Forward fill merged cells
-                    columns_to_unmerge = df_sheet.columns[:11]
-                    for col in columns_to_unmerge:
-                        df_sheet[col] = df_sheet[col].ffill()
-                    
-                    # Add facility identifier
-                    df_sheet['HSE Facility'] = sheet_name
-                    
-                    all_sheets_df.append(df_sheet)
-                    logger.info(f"Successfully processed sheet '{sheet_name}' with {len(df_sheet)} rows")
-                    
-                except Exception as e:
-                    error_msg = f"Error processing sheet '{sheet_name}': {str(e)}"
-                    processing_errors.append(error_msg)
-                    logger.error(error_msg)
-
-            # Clear progress bar
-            st.empty()
-            
-            # Show processing results
-            if processing_errors:
-                show_warning_message(f"Some sheets had issues: {'; '.join(processing_errors)}")
-            
-            if not all_sheets_df:
-                show_error_message("No valid data found in any worksheet.")
-                return None
-
-            # Merge all sheets
-            merged_df = pd.concat(all_sheets_df, ignore_index=True)
-            merged_df.columns = merged_df.columns.str.strip()
-
-            # Data cleaning and standardization
-            if 'Risk Rating' in merged_df.columns:
-                merged_df['Risk Rating'] = merged_df['Risk Rating'].astype(str).str.strip()
-                rating_map = {'Hign': 'High', 'Med': 'Medium'}
-                merged_df['Risk Rating'].replace(rating_map, inplace=True)
-
-            if 'Risk Impact Category' in merged_df.columns:
-                merged_df['Risk Impact Category'] = merged_df['Risk Impact Category'].astype(str).str.strip()
-                # Standardize impact categories
-                category_replacements = {
-                    r'Loos of Trust / confidence|loss of Confidence': 'Loss of Confidence / Trust',
-                    r'Harm to Perso.*': 'Harm to Person'
-                }
-                for pattern, replacement in category_replacements.items():
-                    merged_df['Risk Impact Category'].replace(to_replace=pattern, value=replacement, regex=True, inplace=True)
-
-            if 'Location of Risk Source' in merged_df.columns:
-                merged_df['Location of Risk Source'] = merged_df['Location of Risk Source'].astype(str).str.strip()
-                # Handle multiple locations separated by '/'
-                merged_df = merged_df.assign(**{
-                    'Location of Risk Source': merged_df['Location of Risk Source'].str.split('/')
-                }).explode('Location of Risk Source')
-                merged_df['Location of Risk Source'] = merged_df['Location of Risk Source'].str.strip()
-                # Remove empty entries
-                merged_df = merged_df[merged_df['Location of Risk Source'].str.strip() != '']
-                merged_df.reset_index(drop=True, inplace=True)
-
-            processing_time = time.time() - start_time
-            logger.info(f"Data processing completed in {processing_time:.2f} seconds")
-            
-            show_success_message(f"Successfully processed {len(merged_df)} risk records from {len(sheet_names)} facilities.")
-            
-            return merged_df
-            
+        return merged_df
     except Exception as e:
-        logger.error(f"Critical error in data loading: {e}")
-        show_error_message(f"Failed to process the Excel file: {str(e)}")
+        st.error(f"An error occurred while processing the file: {e}")
         return None
 
-# --- Enhanced AI Integration ---
-@st.cache_data(show_spinner=False)
-def assign_gemini_topics_batch(_df: pd.DataFrame, api_key: str) -> pd.DataFrame:
-    """
-    Enhanced AI topic classification with better error handling and retry logic
-    """
-    df = _df.copy()
-    
-    if 'Topical Category' not in df.columns:
-        df['AI-Generated Topic'] = "Other"
-        return df
-
+@st.cache_data
+def assign_gemini_topics_batch(_df, api_key):
     try:
-        # Configure Gemini
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(model_name='gemini-1.5-flash-latest')
     except Exception as e:
-        logger.error(f"Gemini API configuration failed: {e}")
-        show_error_message("AI service configuration failed. Using default categorization.")
-        df['AI-Generated Topic'] = "Other"
+        st.error(f"API Key Configuration Error: {e}")
+        st.stop()
+    
+    df = _df.copy()
+    if 'Topical Category' not in df.columns:
         return df
-    
-    # Get unique topics
-    unique_topics = [
-        topic for topic in df['Topical Category'].dropna().unique() 
-        if isinstance(topic, str) and topic.strip()
-    ]
-    
+
+    unique_topics = [t for t in df['Topical Category'].dropna().unique() if isinstance(t, str) and t.strip()]
     if not unique_topics:
         df['AI-Generated Topic'] = "Other"
         return df
 
-    try:
-        with show_loading_spinner(f"AI is analyzing {len(unique_topics)} unique risk categories..."):
-            categories_str = "\n".join(f"- {cat}" for cat in MAIN_CATEGORIES)
-            unique_topics_json = json.dumps(unique_topics)
-
-            prompt = f"""
-            You are an expert healthcare risk classification system. Analyze the following risk categories and classify each into the most appropriate predefined category.
-            
-            **Predefined Categories:**
-            {categories_str}
-            
-            **Classification Rules:**
-            - Return ONLY a valid JSON object
-            - Each key must be the exact original text from the input
-            - Each value must be exactly one of the predefined categories
-            - If unsure, use "Other"
-            - Maintain consistency across similar terms
-            
-            **Risk Categories to Classify:**
-            {unique_topics_json}
-            
-            **JSON Response:**
-            """
-            
-            # Retry logic for API calls
-            max_retries = 3
-            for attempt in range(max_retries):
-                try:
-                    response = model.generate_content(prompt)
-                    
-                    # Extract JSON from response
-                    cleaned_response = re.search(r'\{.*\}', response.text, re.DOTALL)
-                    if not cleaned_response:
-                        raise ValueError("No valid JSON found in AI response")
-                    
-                    category_map = json.loads(cleaned_response.group(0))
-                    
-                    # Validate response
-                    if not isinstance(category_map, dict):
-                        raise ValueError("AI response is not a valid dictionary")
-                    
-                    # Map categories
-                    df['AI-Generated Topic'] = df['Topical Category'].map(category_map).fillna("Other")
-                    
-                    # Log success
-                    successful_mappings = len([v for v in category_map.values() if v != "Other"])
-                    logger.info(f"AI successfully classified {successful_mappings}/{len(unique_topics)} categories")
-                    
-                    show_success_message(f"AI classification completed successfully! Classified {successful_mappings}/{len(unique_topics)} categories.")
-                    
-                    return df
-                    
-                except json.JSONDecodeError as e:
-                    if attempt < max_retries - 1:
-                        logger.warning(f"JSON decode error on attempt {attempt + 1}, retrying...")
-                        time.sleep(1)
-                        continue
-                    else:
-                        raise
-                except Exception as e:
-                    if attempt < max_retries - 1:
-                        logger.warning(f"API error on attempt {attempt + 1}: {e}, retrying...")
-                        time.sleep(2)
-                        continue
-                    else:
-                        raise
-                        
-    except Exception as e:
-        logger.error(f"AI classification failed after retries: {e}")
-        show_warning_message("AI classification encountered issues. Using default categorization.")
-        df['AI-Generated Topic'] = "Other"
-        return df
-
-@st.cache_data(show_spinner=False)  
-def get_hospital_locations_batch(_df: pd.DataFrame, api_key: str) -> pd.DataFrame:
+    prompt = f"""
+    You are an expert data classification system. Your task is to classify a list of topical issues into a set of predefined categories.
+    Your response MUST be a single, valid JSON object where each key is the original issue text from the input list, and the corresponding value is ONLY the name of the most appropriate category from the predefined list.
+    **Predefined Categories:**
+    - {"\n- ".join(MAIN_CATEGORIES)}
+    **JSON List of Issues to Classify:**
+    {json.dumps(unique_topics)}
+    **Your JSON Response:**
     """
-    Enhanced hospital location lookup with better error handling
-    """
-    df = _df.copy()
     
-    # Map known hospitals first
+    with st.spinner(f"AI is classifying {len(unique_topics)} unique topics..."):
+        try:
+            response = model.generate_content(prompt)
+            cleaned_response = re.search(r'\{.*\}', response.text, re.DOTALL)
+            if not cleaned_response: raise ValueError("AI response did not contain a valid JSON object.")
+            category_map = json.loads(cleaned_response.group(0))
+            df['AI-Generated Topic'] = df['Topical Category'].map(category_map).fillna("Other")
+        except Exception as e:
+            st.error(f"AI topic classification failed: {e}")
+            df['AI-Generated Topic'] = "Other"
+    return df
+
+@st.cache_data
+def get_hospital_locations_batch(_df, api_key):
+    df = _df.copy()
     df['name'] = df['HSE Facility'].map(lambda x: HOSPITAL_LOCATIONS.get(x, {}).get('name'))
     df['lat'] = df['HSE Facility'].map(lambda x: HOSPITAL_LOCATIONS.get(x, {}).get('lat'))
     df['lon'] = df['HSE Facility'].map(lambda x: HOSPITAL_LOCATIONS.get(x, {}).get('lon'))
-    df['region'] = df['HSE Facility'].map(lambda x: HOSPITAL_LOCATIONS.get(x, {}).get('region'))
     
-    # Find unknown facilities
-    unknown_facilities = [
-        fac for fac in df['HSE Facility'].dropna().unique() 
-        if isinstance(fac, str) and fac.strip() and fac not in HOSPITAL_LOCATIONS
-    ]
-    
+    unknown_facilities = [fac for fac in df['HSE Facility'].dropna().unique() if isinstance(fac, str) and fac.strip() and fac not in HOSPITAL_LOCATIONS]
     if not unknown_facilities:
-        show_success_message("All hospital locations found in directory.")
         return df
 
     try:
-        with show_loading_spinner(f"Looking up {len(unknown_facilities)} unknown facilities..."):
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel(model_name='gemini-1.5-flash-latest')
-            
-            unique_facilities_json = json.dumps(unknown_facilities)
-            prompt = f"""
-            You are a geographic information expert for Irish healthcare facilities. 
-            
-            **Task:** Identify full official names and coordinates for these Irish hospital abbreviations.
-            
-            **Required JSON Format:**
-            {{
-                "ABBREVIATION": {{
-                    "name": "Full Official Hospital Name",
-                    "lat": latitude_number,
-                    "lon": longitude_number
-                }},
-                ...
-            }}
-            
-            **Rules:**
-            - Use exact coordinates for Ireland
-            - Use official hospital names
-            - If unknown, use null for all values
-            - Return only valid JSON
-            
-            **Hospital Abbreviations:**
-            {unique_facilities_json}
-            
-            **JSON Response:**
-            """
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(model_name='gemini-1.5-flash-latest')
+    except Exception:
+        return df
 
+    prompt = f"""
+    You are a geolocation expert for Ireland. Given a JSON list of Irish hospital abbreviations, your task is to identify their full official names and geographic coordinates.
+    Your response MUST be a single, valid JSON object. Each key should be the original hospital abbreviation. The value should be another JSON object with keys "name", "lat", and "lon". If unknown, use null.
+    **JSON List of Hospitals to Geocode:**
+    {json.dumps(unknown_facilities)}
+    **Your JSON Response:**
+    """
+    with st.spinner(f"AI is geolocating {len(unknown_facilities)} unknown facilities..."):
+        try:
             response = model.generate_content(prompt)
             cleaned_response = re.search(r'\{.*\}', response.text, re.DOTALL)
-            
-            if cleaned_response:
-                location_data = json.loads(cleaned_response.group(0))
-                
-                # Update dataframe with new locations
-                for fac, data in location_data.items():
-                    if data and data.get('name'):
-                        mask = df['HSE Facility'] == fac
-                        df.loc[mask, 'name'] = data['name']
-                        df.loc[mask, 'lat'] = data.get('lat')
-                        df.loc[mask, 'lon'] = data.get('lon')
-                
-                show_success_message(f"Successfully located {len(location_data)} facilities.")
-            else:
-                show_warning_message("Could not parse location data from AI response.")
-                
-    except Exception as e:
-        logger.error(f"Hospital geolocation failed: {e}")
-        show_warning_message("Some hospital locations could not be determined.")
-    
+            if not cleaned_response: raise ValueError("AI geolocation response was not valid JSON.")
+            location_data = json.loads(cleaned_response.group(0))
+            for fac, data in location_data.items():
+                if data and data.get('name'):
+                    df.loc[df['HSE Facility'] == fac, ['name', 'lat', 'lon']] = [data['name'], data.get('lat'), data.get('lon')]
+        except Exception as e:
+            st.error(f"AI geolocation failed for unknown facilities: {e}")
     return df
 
-# --- Enhanced Visualization Functions ---
-def create_professional_wordcloud(text_series: pd.Series, title: str) -> Optional[io.BytesIO]:
-    """Generate professional word cloud with custom styling"""
+def create_wc_image(text_series):
     full_text = ' '.join(text_series.dropna().astype(str))
-    if not full_text or len(full_text.strip()) < 10:
-        return None
-    
-    try:
-        stop_words_list = list(stopwords.words('english'))
-        # Add custom healthcare stopwords
-        healthcare_stopwords = ['hospital', 'patient', 'staff', 'department', 'service', 'care']
-        stop_words_list.extend(healthcare_stopwords)
-        
-        wc = WordCloud(
-            width=800, 
-            height=400, 
-            background_color='white',
-            colormap='viridis',
-            stopwords=stop_words_list,
-            max_words=100,
-            relative_scaling=0.5,
-            min_font_size=10
-        ).generate(full_text)
-        
-        fig, ax = plt.subplots(figsize=(10, 5))
-        ax.imshow(wc, interpolation='bilinear')
-        ax.axis('off')
-        ax.set_title(title, fontsize=16, fontweight='bold', pad=20)
-        
-        buf = io.BytesIO()
-        fig.savefig(buf, format='png', bbox_inches='tight', dpi=150, pad_inches=0.1)
-        plt.close(fig)
-        buf.seek(0)
-        return buf
-        
-    except Exception as e:
-        logger.error(f"Word cloud generation failed: {e}")
-        return None
+    if not full_text: return None
+    wc = WordCloud(width=800, height=400, background_color='white', colormap='plasma', stopwords=list(stopwords.words('english'))).generate(full_text)
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.imshow(wc, interpolation='bilinear')
+    ax.axis('off')
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
+    plt.close(fig)
+    buf.seek(0)
+    return buf
 
-def create_enhanced_metrics_display(df: pd.DataFrame) -> None:
-    """Create professional metrics display with KPIs"""
-    st.markdown('<div class="section-header"><h3>📊 Risk Overview Dashboard</h3></div>', unsafe_allow_html=True)
-    
-    # Main metrics
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        total_risks = len(df)
-        st.metric(
-            label="Total Risks",
-            value=f"{total_risks:,}",
-            help="Total number of identified risks across all facilities"
-        )
-    
-    with col2:
-        facilities = df['HSE Facility'].nunique()
-        st.metric(
-            label="Facilities", 
-            value=facilities,
-            help="Number of HSE facilities included in analysis"
-        )
-    
-    with col3:
-        high_risks = len(df[df['Risk Rating'] == 'High'])
-        high_risk_pct = (high_risks / total_risks * 100) if total_risks > 0 else 0
-        st.metric(
-            label="High Priority Risks",
-            value=high_risks,
-            delta=f"{high_risk_pct:.1f}% of total",
-            delta_color="inverse",
-            help="Number and percentage of high-priority risks requiring immediate attention"
-        )
-    
-    with col4:
-        categories = df['Risk Impact Category'].nunique()
-        st.metric(
-            label="Impact Categories",
-            value=categories,
-            help="Number of distinct risk impact categories identified"
-        )
-
-def create_professional_filters(df: pd.DataFrame) -> Dict:
-    """Create professional sidebar filters with better UX"""
-    st.sidebar.markdown("### 🎛️ Analysis Filters")
-    st.sidebar.markdown("---")
-    
-    filters = {}
-    
-    # Facility filter with regions
-    st.sidebar.markdown("**🏥 Healthcare Facilities**")
-    facility_options = sorted(df['HSE Facility'].unique())
-    filters['facilities'] = st.sidebar.multiselect(
-        "Select facilities to analyze:",
-        options=facility_options,
-        default=facility_options,
-        help="Choose specific HSE facilities to include in the analysis"
-    )
-    
-    # Risk rating filter
-    st.sidebar.markdown("**⚠️ Risk Priority Levels**")
-    rating_options = sorted(df['Risk Rating'].dropna().unique())
-    filters['risk_ratings'] = st.sidebar.multiselect(
-        "Filter by risk priority:",
-        options=rating_options,
-        default=rating_options,
-        help="Select risk priority levels to include"
-    )
-    
-    # AI Topic filter
-    st.sidebar.markdown("**🤖 AI-Generated Categories**")
-    if 'AI-Generated Topic' in df.columns:
-        ai_topic_options = sorted(df['AI-Generated Topic'].dropna().unique())
-        filters['ai_topics'] = st.sidebar.multiselect(
-            "Filter by AI classification:",
-            options=ai_topic_options,
-            default=ai_topic_options,
-            help="AI-generated risk categories based on content analysis"
-        )
-    
-    # Location filter
-    st.sidebar.markdown("**📍 Risk Source Locations**")
-    location_options = sorted(df['Location of Risk Source'].dropna().unique())
-    filters['locations'] = st.sidebar.multiselect(
-        "Filter by risk source:",
-        options=location_options,
-        default=location_options,
-        help="Internal vs External risk sources"
-    )
-    
-    # Impact category filter
-    st.sidebar.markdown("**💥 Impact Categories**")
-    impact_options = sorted(df['Risk Impact Category'].dropna().unique())
-    filters['impact_categories'] = st.sidebar.multiselect(
-        "Filter by impact type:",
-        options=impact_options,
-        default=impact_options,
-        help="Types of potential impact from identified risks"
-    )
-    
-    # Add clear filters button
-    st.sidebar.markdown("---")
-    if st.sidebar.button("🔄 Reset All Filters", help="Reset all filters to default values"):
-        st.rerun()
-    
-    return filters
-
-def map_topical_category(category) -> str:
-    """Enhanced topical category mapping with better logic"""
-    if pd.isna(category):
-        return 'Other'
-    
+def map_topical_category(category):
+    if pd.isna(category): return 'Other'
     category_lower = str(category).lower()
-    
-    # Define mapping rules with priority
-    mapping_rules = [
-        (['incoming water supply', 'water quality', 'supply pressure'], 'Supply Infrastructure & Quality'),
-        (['distribution system', 'internal water', 'backup storage', 'water storage'], 'Distribution & Internal Systems'),
-        (['metering', 'monitoring', 'measurement'], 'Metering & Monitoring'),
-        (['protocol', 'eaps', 'sops', 'governance', 'procedure', 'communication'], 'Protocols & Governance'),
-        (['maintenance', 'resources', 'procurement', 'contractor'], 'Maintenance & Resources'),
-        (['documentation', 'data', 'drawings', 'maps', 'records'], 'Data & Documentation'),
-        (['wastewater', 'stormwater', 'drainage'], 'Wastewater & Stormwater'),
-        (['waste', 'conservation', 'non-potable'], 'Resource Management')
-    ]
-    
-    for keywords, category_name in mapping_rules:
-        if any(keyword in category_lower for keyword in keywords):
-            return category_name
-    
+    if 'incoming water supply' in category_lower: return 'Supply Infrastructure & Quality'
+    if any(k in category_lower for k in ['distribution system', 'internal water', 'backup storage']): return 'Distribution & Internal Systems'
+    if any(k in category_lower for k in ['metering', 'monitoring']): return 'Metering & Monitoring'
+    if any(k in category_lower for k in ['protocol', 'eaps/sops', 'governance', 'communication']): return 'Protocols & Governance'
+    if any(k in category_lower for k in ['maintenance', 'resources', 'procurement', 'contractor']): return 'Maintenance & Resources'
+    if any(k in category_lower for k in ['documentation', 'drawings', 'maps']): return 'Data & Documentation'
+    if any(k in category_lower for k in ['wastewater', 'stormwater']): return 'Wastewater & Stormwater'
+    if any(k in category_lower for k in ['waste of water']): return 'Resource Management'
     return 'Other'
 
-# --- Enhanced Dashboard Functions ---
-def create_risk_distribution_analysis(df: pd.DataFrame) -> None:
-    """Create comprehensive risk distribution analysis"""
-    st.markdown('<div class="section-header"><h3>📈 Risk Distribution Analysis</h3></div>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("🤖 AI-Generated Topic Distribution")
-        if 'AI-Generated Topic' in df.columns:
-            ai_topic_counts = df['AI-Generated Topic'].value_counts()
-            
-            fig_ai_donut = px.pie(
-                values=ai_topic_counts.values,
-                names=ai_topic_counts.index,
-                hole=0.4,
-                title="AI Classification Results",
-                color_discrete_sequence=px.colors.qualitative.Set3
-            )
-            fig_ai_donut.update_traces(textposition='inside', textinfo='percent+label')
-            fig_ai_donut.update_layout(
-                font=dict(size=12),
-                showlegend=True,
-                legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.01)
-            )
-            st.plotly_chart(fig_ai_donut, use_container_width=True)
-    
-    with col2:
-        st.subheader("⚠️ Risk Priority Distribution")
-        rating_counts = df['Risk Rating'].value_counts()
-        
-        fig_rating = px.bar(
-            x=rating_counts.index,
-            y=rating_counts.values,
-            labels={'x': 'Risk Priority Level', 'y': 'Number of Risks'},
-            title="Risk Priority Breakdown",
-            color=rating_counts.index,
-            color_discrete_map=AppConfig.RISK_COLORS
-        )
-        fig_rating.update_layout(showlegend=False, xaxis_title="Risk Priority Level", yaxis_title="Count")
-        st.plotly_chart(fig_rating, use_container_width=True)
-
-    # Additional analysis row
-    col3, col4 = st.columns(2)
-    
-    with col3:
-        st.subheader("💥 Impact Category Analysis")
-        impact_counts = df['Risk Impact Category'].value_counts()
-        
-        fig_impact = px.pie(
-            values=impact_counts.values,
-            names=impact_counts.index,
-            hole=0.3,
-            title="Risk Impact Distribution"
-        )
-        fig_impact.update_traces(textposition='inside', textinfo='percent+label')
-        st.plotly_chart(fig_impact, use_container_width=True)
-    
-    with col4:
-        st.subheader("📍 Risk Source Location")
-        location_counts = df['Location of Risk Source'].value_counts().reset_index()
-        location_counts.columns = ['Location', 'Count']
-        
-        fig_location = px.treemap(
-            location_counts, 
-            path=['Location'], 
-            values='Count',
-            title='Risk Source Distribution',
-            color='Count',
-            color_continuous_scale='Blues'
-        )
-        st.plotly_chart(fig_location, use_container_width=True)
-
-def create_geographic_analysis(df: pd.DataFrame) -> None:
-    """Create enhanced geographic risk analysis"""
-    st.markdown('<div class="section-header"><h3>🗺️ Geographic Risk Analysis</h3></div>', unsafe_allow_html=True)
-    
-    map_df = df.dropna(subset=['lat', 'lon']).copy()
-    
-    if map_df.empty:
-        show_info_message("No geographic data available for mapping analysis.")
-        return
-    
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.subheader("Risk Distribution Heatmap")
-        
-        # Create risk heatmap
-        center_lat, center_lon = 53.4, -7.9
-        m = folium.Map(
-            location=[center_lat, center_lon], 
-            zoom_start=7,
-            tiles='OpenStreetMap'
-        )
-        
-        # Add heatmap layer
-        heat_data = [[row['lat'], row['lon']] for _, row in map_df.iterrows()]
-        HeatMap(heat_data, radius=20, blur=15, max_zoom=1).add_to(m)
-        
-        # Add facility markers with risk counts
-        facility_risk_counts = map_df.groupby(['HSE Facility', 'name', 'lat', 'lon']).size().reset_index(name='risk_count')
-        
-        for _, row in facility_risk_counts.iterrows():
-            if pd.notna(row['lat']) and pd.notna(row['lon']):
-                popup_text = f"""
-                <b>{row['name'] or row['HSE Facility']}</b><br>
-                Total Risks: {row['risk_count']}<br>
-                Facility Code: {row['HSE Facility']}
-                """
-                
-                folium.CircleMarker(
-                    location=[row['lat'], row['lon']],
-                    radius=max(5, min(15, row['risk_count'])),
-                    popup=folium.Popup(popup_text, max_width=300),
-                    color='red',
-                    fillColor='red',
-                    fillOpacity=0.7
-                ).add_to(m)
-        
-        folium_static(m, height=500)
-    
-    with col2:
-        st.subheader("Regional Summary")
-        
-        # Regional analysis if region data is available
-        if 'region' in map_df.columns:
-            regional_summary = map_df.groupby('region').agg({
-                'HSE Facility': 'nunique',
-                'Risk Rating': lambda x: (x == 'High').sum()
-            }).reset_index()
-            regional_summary.columns = ['Region', 'Facilities', 'High Risk Count']
-            
-            st.dataframe(
-                regional_summary,
-                use_container_width=True,
-                hide_index=True
-            )
-        
-        # Top facilities by risk count
-        st.subheader("Facilities by Risk Count")
-        facility_summary = map_df.groupby(['HSE Facility', 'name']).size().reset_index(name='Total Risks')
-        facility_summary = facility_summary.sort_values('Total Risks', ascending=False).head(10)
-        
-        for _, row in facility_summary.iterrows():
-            facility_name = row['name'] if pd.notna(row['name']) else row['HSE Facility']
-            st.metric(
-                label=f"{row['HSE Facility']}",
-                value=row['Total Risks'],
-                help=facility_name
-            )
-
-def create_advanced_analytics(df: pd.DataFrame) -> None:
-    """Create advanced analytics section"""
-    st.markdown('<div class="section-header"><h3>🔬 Advanced Analytics</h3></div>', unsafe_allow_html=True)
-    
-    # Enhanced hierarchical analysis
-    df_clean = df.dropna(subset=['Location of Risk Source', 'Risk Rating', 'AI-Generated Topic'])
-    
-    if df_clean.empty:
-        show_info_message("Insufficient data for advanced analytics.")
-        return
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("📊 Risk Flow Analysis (Sankey Diagram)")
-        
-        # Create Sankey diagram data
-        nodes_source = sorted(df_clean['Location of Risk Source'].unique())
-        nodes_rating = sorted(df_clean['Risk Rating'].unique())
-        nodes_topic = sorted(df_clean['AI-Generated Topic'].unique())
-        
-        all_nodes = nodes_source + nodes_rating + nodes_topic
-        node_indices = {node: i for i, node in enumerate(all_nodes)}
-        
-        # Create links
-        links_1 = df_clean.groupby(['Location of Risk Source', 'Risk Rating']).size().reset_index(name='value')
-        links_1['source'] = links_1['Location of Risk Source'].map(node_indices)
-        links_1['target'] = links_1['Risk Rating'].map(node_indices)
-        
-        links_2 = df_clean.groupby(['Risk Rating', 'AI-Generated Topic']).size().reset_index(name='value')
-        links_2['source'] = links_2['Risk Rating'].map(node_indices)  
-        links_2['target'] = links_2['AI-Generated Topic'].map(node_indices)
-        
-        all_links = pd.concat([links_1[['source', 'target', 'value']], 
-                              links_2[['source', 'target', 'value']]], ignore_index=True)
-        
-        # Create Sankey
-        fig_sankey = go.Figure(data=[go.Sankey(
-            node=dict(
-                pad=15,
-                thickness=20,
-                line=dict(color="black", width=0.5),
-                label=all_nodes,
-                color="lightblue"
-            ),
-            link=dict(
-                source=all_links['source'],
-                target=all_links['target'],
-                value=all_links['value']
-            )
-        )])
-        
-        fig_sankey.update_layout(
-            title_text="Risk Flow: Source → Priority → Category",
-            font_size=10,
-            height=400
-        )
-        st.plotly_chart(fig_sankey, use_container_width=True)
-    
-    with col2:
-        st.subheader("🎯 Risk Correlation Matrix")
-        
-        # Create correlation analysis
-        df_encoded = df_clean.copy()
-        
-        # Encode categorical variables
-        from sklearn.preprocessing import LabelEncoder
-        
-        categorical_cols = ['Location of Risk Source', 'Risk Rating', 'AI-Generated Topic', 'HSE Facility']
-        encoders = {}
-        
-        for col in categorical_cols:
-            if col in df_encoded.columns:
-                encoders[col] = LabelEncoder()
-                df_encoded[f'{col}_encoded'] = encoders[col].fit_transform(df_encoded[col])
-        
-        # Calculate correlation matrix
-        corr_cols = [f'{col}_encoded' for col in categorical_cols if f'{col}_encoded' in df_encoded.columns]
-        if len(corr_cols) > 1:
-            corr_matrix = df_encoded[corr_cols].corr()
-            
-            # Rename columns for display
-            display_names = [col.replace('_encoded', '') for col in corr_cols]
-            corr_matrix.index = display_names
-            corr_matrix.columns = display_names
-            
-            fig_corr = px.imshow(
-                corr_matrix,
-                text_auto=True,
-                aspect="auto",
-                color_continuous_scale='RdBu',
-                title="Risk Factor Correlations"
-            )
-            fig_corr.update_layout(height=400)
-            st.plotly_chart(fig_corr, use_container_width=True)
-
-def create_text_analytics(df: pd.DataFrame) -> None:
-    """Create enhanced text analytics section"""
-    st.markdown('<div class="section-header"><h3>📝 Text Analytics & Insights</h3></div>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("☁️ Risk Description Word Cloud")
-        if 'Risk Description' in df.columns:
-            wc_img = create_professional_wordcloud(
-                df['Risk Description'], 
-                "Most Common Terms in Risk Descriptions"
-            )
-            if wc_img:
-                st.image(wc_img, use_column_width=True)
-            else:
-                show_info_message("Insufficient text data for Risk Description word cloud.")
-    
-    with col2:
-        st.subheader("💥 Impact Description Word Cloud") 
-        if 'Impact Description' in df.columns:
-            wc_img = create_professional_wordcloud(
-                df['Impact Description'],
-                "Most Common Terms in Impact Descriptions"
-            )
-            if wc_img:
-                st.image(wc_img, use_column_width=True)
-            else:
-                show_info_message("Insufficient text data for Impact Description word cloud.")
-    
-    # Text statistics
-    st.subheader("📊 Text Analytics Summary")
-    
-    text_metrics_cols = st.columns(4)
-    
-    if 'Risk Description' in df.columns:
-        avg_risk_length = df['Risk Description'].astype(str).str.len().mean()
-        with text_metrics_cols[0]:
-            st.metric("Avg Risk Desc Length", f"{avg_risk_length:.0f} chars")
-    
-    if 'Impact Description' in df.columns:
-        avg_impact_length = df['Impact Description'].astype(str).str.len().mean()
-        with text_metrics_cols[1]:
-            st.metric("Avg Impact Desc Length", f"{avg_impact_length:.0f} chars")
-    
-    if 'Topical Category' in df.columns:
-        unique_categories = df['Topical Category'].nunique()
-        with text_metrics_cols[2]:
-            st.metric("Unique Categories", unique_categories)
-    
-    total_words = 0
-    for col in ['Risk Description', 'Impact Description']:
-        if col in df.columns:
-            total_words += df[col].astype(str).str.split().str.len().sum()
-    
-    with text_metrics_cols[3]:
-        st.metric("Total Words Analyzed", f"{total_words:,}")
-
-def create_executive_summary(df: pd.DataFrame) -> None:
-    """Create executive summary section"""
-    st.markdown('<div class="section-header"><h3>📋 Executive Summary</h3></div>', unsafe_allow_html=True)
-    
-    # Key findings
-    total_risks = len(df)
-    high_priority = len(df[df['Risk Rating'] == 'High'])
-    facilities_count = df['HSE Facility'].nunique()
-    
-    # Most common risk category
-    if 'AI-Generated Topic' in df.columns:
-        top_category = df['AI-Generated Topic'].mode().iloc[0] if not df['AI-Generated Topic'].empty else "Unknown"
-        top_category_count = df['AI-Generated Topic'].value_counts().iloc[0] if not df['AI-Generated Topic'].empty else 0
-    else:
-        top_category = "Unknown"
-        top_category_count = 0
-    
-    # Most affected facility
-    top_facility = df['HSE Facility'].value_counts().index[0] if not df.empty else "Unknown"
-    top_facility_risks = df['HSE Facility'].value_counts().iloc[0] if not df.empty else 0
-    
-    summary_text = f"""
-    ## 🎯 Key Findings
-    
-    **Risk Overview:**
-    - **{total_risks:,}** total risks identified across **{facilities_count}** HSE facilities
-    - **{high_priority}** high-priority risks requiring immediate attention ({high_priority/total_risks*100:.1f}% of total)
-    - **{top_category}** is the most common risk category with **{top_category_count}** incidents
-    
-    **Facility Impact:**
-    - **{top_facility}** has the highest number of identified risks (**{top_facility_risks}** total)
-    - Risk distribution varies significantly across facilities and regions
-    
-    **Recommendations:**
-    1. **Immediate Action Required:** Focus on {high_priority} high-priority risks
-    2. **Category Focus:** Prioritize improvements in {top_category} systems  
-    3. **Facility Support:** Provide additional resources to {top_facility}
-    4. **Systematic Review:** Implement standardized risk assessment protocols
-    """
-    
-    st.markdown(summary_text)
-    
-    # Risk trend analysis (if date columns are available)
-    date_columns = [col for col in df.columns if 'date' in col.lower() or 'created' in col.lower()]
-    if date_columns:
-        st.subheader("📈 Risk Trends")
-        show_info_message("Trend analysis available - implement based on your specific date columns.")
-
-def create_data_quality_report(df: pd.DataFrame) -> None:
-    """Create data quality assessment"""
-    st.markdown('<div class="section-header"><h3>🔍 Data Quality Report</h3></div>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Completeness Analysis")
-        
-        completeness_data = []
-        for col in df.columns:
-            total_count = len(df)
-            non_null_count = df[col].count()
-            completeness_pct = (non_null_count / total_count * 100) if total_count > 0 else 0
-            
-            completeness_data.append({
-                'Column': col,
-                'Complete Records': non_null_count,
-                'Total Records': total_count,
-                'Completeness %': completeness_pct
-            })
-        
-        completeness_df = pd.DataFrame(completeness_data)
-        completeness_df = completeness_df.sort_values('Completeness %', ascending=False)
-        
-        # Color code based on completeness
-        def color_completeness(val):
-            if val >= 90:
-                return 'background-color: #d4edda'  # Green
-            elif val >= 70:
-                return 'background-color: #fff3cd'  # Yellow  
-            else:
-                return 'background-color: #f8d7da'  # Red
-        
-        styled_df = completeness_df.style.applymap(
-            color_completeness, 
-            subset=['Completeness %']
-        ).format({'Completeness %': '{:.1f}%'})
-        
-        st.dataframe(styled_df, use_container_width=True, hide_index=True)
-    
-    with col2:
-        st.subheader("Data Quality Metrics")
-        
-        # Calculate quality metrics
-        total_cells = df.shape[0] * df.shape[1]
-        missing_cells = df.isnull().sum().sum()
-        data_completeness = ((total_cells - missing_cells) / total_cells * 100) if total_cells > 0 else 0
-        
-        # Duplicate analysis
-        duplicate_rows = df.duplicated().sum()
-        
-        # Standard deviation of completeness
-        completeness_std = completeness_df['Completeness %'].std()
-        
-        st.metric("Overall Data Completeness", f"{data_completeness:.1f}%")
-        st.metric("Duplicate Records", duplicate_rows)
-        st.metric("Completeness Consistency", f"{100-completeness_std:.1f}%")
-        
-        # Quality score
-        quality_score = (data_completeness + (100-completeness_std)) / 2
-        quality_color = "normal"
-        if quality_score >= 90:
-            quality_color = "normal"
-        elif quality_score >= 70:
-            quality_color = "off"
-        else:
-            quality_color = "inverse"
-            
-        st.metric(
-            "Data Quality Score", 
-            f"{quality_score:.1f}%",
-            delta_color=quality_color,
-            help="Composite score based on completeness and consistency"
-        )
-
-def run_professional_dashboard():
-    """Enhanced main dashboard function"""
-    show_professional_header()
-    
-    # Download NLTK resources
+def run_dashboard():
+    st.markdown(f'<div class="main-header"><h1>🏥 {AppConfig.APP_NAME}</h1><p>Version {AppConfig.APP_VERSION}</p></div>', unsafe_allow_html=True)
     download_nltk_stopwords()
     
-    # File upload section
-    st.markdown("### 📁 Data Upload")
-    uploaded_file = st.file_uploader(
-        "Upload your HSE Risk Analysis Excel file",
-        type="xlsx",
-        help="Select an Excel file containing risk data across multiple facility worksheets"
-    )
-    
+    uploaded_file = st.file_uploader("Upload your HSE Risk Analysis Excel file", type="xlsx")
     if uploaded_file is None:
-        show_info_message("Please upload an Excel file to begin the risk analysis.")
-        
-        # Show demo information
-        with st.expander("ℹ️ About This Dashboard"):
-            st.markdown("""
-            This professional risk analysis dashboard provides:
-            
-            **🔧 Features:**
-            - AI-powered risk categorization using Google Gemini
-            - Interactive geographic risk mapping
-            - Advanced text analytics and word clouds  
-            - Hierarchical risk flow analysis
-            - Professional data quality reporting
-            - Executive summary with key insights
-            
-            **📊 Analytics Capabilities:**
-            - Risk distribution analysis across facilities
-            - Priority-based risk assessment
-            - Geographic hotspot identification
-            - Text mining of risk descriptions
-            - Correlation analysis between risk factors
-            
-            **🚀 Getting Started:**
-            1. Upload your Excel file with risk data
-            2. Use the sidebar filters to focus your analysis
-            3. Explore the interactive visualizations
-            4. Review the executive summary for key insights
-            """)
+        st.info("Please upload a file to begin analysis.")
         return
 
-    # Load and process data
     df = load_and_merge_data(uploaded_file)
-    if df is None:
-        return
+    if df is None: return
 
-    # Get API key
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
     except KeyError:
-        show_error_message("Gemini AI service is not properly configured. Please contact your administrator.")
+        st.error("Gemini API Key is not configured. Please contact the administrator.")
         st.stop()
 
-    # AI Processing
-    with st.spinner("🤖 Processing data with AI..."):
-        df = assign_gemini_topics_batch(df, api_key)
-        df = get_hospital_locations_batch(df, api_key)
+    df = assign_gemini_topics_batch(df, api_key)
+    df = get_hospital_locations_batch(df, api_key)
 
-    # Add derived columns
-    df['Parent Category'] = df['Topical Category'].apply(map_topical_category)
-
-    # Professional filters
-    filters = create_professional_filters(df)
+    st.sidebar.header("Filter Options")
     
-    # Apply filters
+    ai_topic_options = sorted(df['AI-Generated Topic'].dropna().unique())
+    selected_ai_topics = st.sidebar.multiselect("AI-Generated Topic:", options=ai_topic_options, default=ai_topic_options)
+    
+    source_tabs = st.sidebar.multiselect("HSE Facility:", options=df['HSE Facility'].unique(), default=df['HSE Facility'].unique())
+    risk_locations = st.sidebar.multiselect("Risk Source Location:", options=df['Location of Risk Source'].dropna().unique(), default=df['Location of Risk Source'].dropna().unique())
+    risk_ratings = st.sidebar.multiselect("Risk Rating:", options=df['Risk Rating'].dropna().unique(), default=df['Risk Rating'].dropna().unique())
+    impact_categories = st.sidebar.multiselect("Impact Category:", options=df['Risk Impact Category'].dropna().unique(), default=df['Risk Impact Category'].dropna().unique())
+    
     df_filtered = df[
-        df['HSE Facility'].isin(filters['facilities']) &
-        df['Risk Rating'].isin(filters['risk_ratings']) &
-        df['Location of Risk Source'].isin(filters['locations']) &
-        df['Risk Impact Category'].isin(filters['impact_categories'])
+        df['HSE Facility'].isin(source_tabs) &
+        df['Risk Rating'].isin(risk_ratings) &
+        df['Risk Impact Category'].isin(impact_categories) &
+        df['Location of Risk Source'].isin(risk_locations) &
+        df['AI-Generated Topic'].isin(selected_ai_topics)
     ].copy()
     
-    if 'ai_topics' in filters:
-        df_filtered = df_filtered[df_filtered['AI-Generated Topic'].isin(filters['ai_topics'])]
+    df_filtered['Parent Category'] = df_filtered['Topical Category'].apply(map_topical_category)
 
     if df_filtered.empty:
-        show_warning_message("No data matches your current filter selection. Please adjust the filters.")
+        st.warning("No data matches the current filter settings.")
         return
 
-    # Main dashboard sections
-    create_enhanced_metrics_display(df_filtered)
+    st.markdown('<div class="section-header"><h3>Filtered Risk Overview</h3></div>', unsafe_allow_html=True)
+    st.metric(label="Total Risks Identified (Filtered)", value=f"{len(df_filtered)}")
+    st.subheader("Risk Rating Breakdown")
+    rating_counts = df_filtered['Risk Rating'].value_counts()
+    kpi1, kpi2, kpi3 = st.columns(3)
+    kpi1.metric(label="High Risks", value=rating_counts.get('High', 0))
+    kpi2.metric(label="Medium Risks", value=rating_counts.get('Medium', 0))
+    kpi3.metric(label="Low Risks", value=rating_counts.get('Low', 0))
+
+    st.markdown('<div class="section-header"><h3>Distribution Analysis</h3></div>', unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        fig_ai_donut = px.pie(df_filtered, names='AI-Generated Topic', hole=0.4, title="AI-Generated Topic Distribution")
+        st.plotly_chart(fig_ai_donut, use_container_width=True)
+    with col2:
+        fig_rating = px.bar(df_filtered, x='Risk Rating', title="Risk Rating Distribution", color='Risk Rating')
+        st.plotly_chart(fig_rating, use_container_width=True)
+    col3, col4 = st.columns(2)
+    with col3:
+        fig_impact = px.pie(df_filtered, names='Risk Impact Category', hole=0.4, title="Risk Impact Category Distribution")
+        st.plotly_chart(fig_impact, use_container_width=True)
+    with col4:
+        location_counts = df_filtered['Location of Risk Source'].value_counts().reset_index()
+        fig_location = px.treemap(location_counts, path=['Location of Risk Source'], values='count', title='Internal vs. External Risks')
+        st.plotly_chart(fig_location, use_container_width=True)
+    
+    st.markdown('<div class="section-header"><h3>Hierarchical & Flow Analysis</h3></div>', unsafe_allow_html=True)
+    col_hier1, col_hier2 = st.columns(2)
+    with col_hier1:
+        sunburst_data = df_filtered.dropna(subset=['Location of Risk Source', 'Risk Rating', 'Parent Category', 'Topical Category']).copy()
+        if not sunburst_data.empty:
+            for col in ['Parent Category', 'Topical Category']:
+                 sunburst_data[col] = sunburst_data[col].astype(str).apply(lambda x: '<br>'.join(textwrap.wrap(x, width=20)))
+            fig_sunburst = px.sunburst(sunburst_data, path=['Location of Risk Source', 'Risk Rating', 'Parent Category', 'Topical Category'], title="Sunburst View")
+            st.plotly_chart(fig_sunburst, use_container_width=True)
+    with col_hier2:
+        sankey_data = df_filtered.dropna(subset=['Location of Risk Source', 'Risk Rating', 'Parent Category'])
+        if not sankey_data.empty:
+            all_nodes = list(pd.unique(sankey_data[['Location of Risk Source', 'Risk Rating', 'Parent Category']].values.ravel('K')))
+            node_map = {node: i for i, node in enumerate(all_nodes)}
+            palette = px.colors.qualitative.Plotly
+            color_map = {node: palette[i % len(palette)] for i, node in enumerate(all_nodes)}
+            
+            links_1 = sankey_data.groupby(['Location of Risk Source', 'Risk Rating']).size().reset_index(name='value')
+            links_2 = sankey_data.groupby(['Risk Rating', 'Parent Category']).size().reset_index(name='value')
+            links = pd.concat([links_1, links_2], axis=0)
+            
+            fig = go.Figure(data=[go.Sankey(
+                node=dict(pad=25, thickness=20, line=dict(color="black", width=0.5), label=all_nodes, color=[color_map[n] for n in all_nodes]),
+                link=dict(
+                    source=links.iloc[:,0].map(node_map),
+                    target=links.iloc[:,1].map(node_map),
+                    value=links['value'],
+                    color=[f"rgba({int(color_map[src][1:3], 16)}, {int(color_map[src][3:5], 16)}, {int(color_map[src][5:7], 16)}, 0.4)" for src in links.iloc[:,0]]
+                )
+            )])
+            fig.update_layout(title_text="Risk Flow Analysis", font=dict(size=10), height=500)
+            st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown('<div class="section-header"><h3>Textual Insights</h3></div>', unsafe_allow_html=True)
+    col_wc1, spacer, col_wc2 = st.columns([5,1,5])
+    with col_wc1:
+        st.subheader("Risk Description Word Cloud")
+        if 'Risk Description' in df_filtered.columns:
+            img_buf = create_wc_image(df_filtered['Risk Description'])
+            if img_buf: st.image(img_buf)
+    with col_wc2:
+        st.subheader("Impact Description Word Cloud")
+        if 'Impact Description' in df_filtered.columns:
+            img_buf = create_wc_image(df_filtered['Impact Description'])
+            if img_buf: st.image(img_buf)
+    
+    st.markdown('<div class="section-header"><h3>Geographic Risk Analysis</h3></div>', unsafe_allow_html=True)
+    map_df = df_filtered.dropna(subset=['lat', 'lon'])
+    if not map_df.empty:
+        m = folium.Map(location=[53.4, -7.9], zoom_start=7)
+        HeatMap(data=map_df[['lat', 'lon']].values.tolist(), radius=15).add_to(m)
+        map_html = m._repr_html_()
+        components.html(map_html, height=500)
+    else:
+        st.info("No geolocated data available for heatmap.")
     
     st.markdown("---")
-    create_risk_distribution_analysis(df_filtered)
-    
-    st.markdown("---")
-    create_advanced_analytics(df_filtered)
-    
-    st.markdown("---") 
-    create_geographic_analysis(df_filtered)
-    
-    st.markdown("---")
-    create_text_analytics(df_filtered)
-    
-    st.markdown("---")
-    create_executive_summary(df_filtered)
-    
-    # Expandable sections
-    with st.expander("🔍 Data Quality Assessment"):
-        create_data_quality_report(df_filtered)
-    
-    with st.expander("📋 Filtered Dataset"):
-        st.subheader("Complete Filtered Dataset")
-        st.dataframe(
-            df_filtered,
-            use_container_width=True,
-            hide_index=True
-        )
-        
-        # Download button
-        csv_data = df_filtered.to_csv(index=False)
-        st.download_button(
-            label="📥 Download Filtered Data (CSV)",
-            data=csv_data,
-            file_name=f"hse_risk_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-            mime="text/csv"
-        )
-    
-    # Footer
-    st.markdown("""
-    <div class="footer">
-        <hr>
-        <p><strong>{}</strong> | Version {} | Generated on {}</p>
-        <p>Powered by AI-driven analytics | © {} Healthcare Risk Management Team</p>
-    </div>
-    """.format(
-        AppConfig.APP_NAME,
-        AppConfig.APP_VERSION, 
-        datetime.now().strftime("%B %d, %Y at %I:%M %p"),
-        datetime.now().year
-    ), unsafe_allow_html=True)
+    st.header("Filtered Data Details")
+    st.dataframe(df_filtered)
 
 def main():
-    """Enhanced main function with professional authentication"""
-    
-    # Initialize session state
+    """Main function to handle authentication and run the app."""
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
-    
-    def authenticate_user():
-        """Professional authentication with better UX"""
+
+    def check_credentials():
         try:
-            if st.session_state.get("password") == st.secrets["PASSWORD"]:
+            if st.session_state["password"] == st.secrets["PASSWORD"]:
                 st.session_state.authenticated = True
-                logger.info("User authenticated successfully")
-                return True
             else:
                 st.session_state.authenticated = False
-                return False
         except KeyError:
-            logger.error("Authentication password not configured in secrets")
-            show_error_message("Authentication system not properly configured.")
-            return False
-    
-    # Authentication UI
-    if not st.session_state.authenticated:
-        st.markdown("""
-        <div class="main-header">
-            <h1>🔐 HSE Risk Analysis Dashboard</h1>
-            <p>Secure Access Portal</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("### Please enter your credentials to access the dashboard")
-        
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            st.text_input(
-                "🔑 Access Password",
-                type="password",
-                key="password",
-                help="Enter your authorized access password"
-            )
-            
-            login_button = st.button(
-                "🚀 Access Dashboard",
-                type="primary",
-                use_container_width=True
-            )
-            
-            if login_button:
-                if authenticate_user():
-                    show_success_message("Authentication successful! Redirecting to dashboard...")
-                    time.sleep(1)
-                    st.rerun()
-                else:
-                    show_error_message("Invalid credentials. Please check your password and try again.")
-        
-        # Show system info
-        st.markdown("---")
-        st.info(f"""
-        **System Information:**
-        - Dashboard Version: {AppConfig.APP_VERSION}
-        - Last Updated: {AppConfig.LAST_UPDATED}
-        - Support: Contact your system administrator
-        """)
-        
-        return
-
-    # Main dashboard (authenticated users)
-    if st.session_state.authenticated:
-        
-        # Sidebar authentication status
-        st.sidebar.success("🟢 Authenticated")
-        st.sidebar.markdown(f"**User:** Authorized Personnel")
-        st.sidebar.markdown(f"**Session:** Active")
-        
-        if st.sidebar.button("🚪 Logout", help="End your session and return to login"):
             st.session_state.authenticated = False
-            logger.info("User logged out")
-            st.rerun()
-        
-        st.sidebar.markdown("---")
-        
-        try:
-            run_professional_dashboard()
-        except Exception as e:
-            logger.error(f"Dashboard error: {e}")
-            show_error_message(f"An unexpected error occurred: {str(e)}")
-            st.stop()
+    
+    if not st.session_state.authenticated:
+        st.title("🔐 Login")
+        st.text_input("Password", type="password", key="password")
+        if st.button("Log in"):
+            check_credentials()
+            if not st.session_state.authenticated:
+                st.error("😕 Invalid password")
+            else:
+                st.rerun()
+    
+    if st.session_state.authenticated:
+        st.sidebar.success("Logged in successfully!")
+        run_dashboard()
 
 if __name__ == '__main__':
     main()
+

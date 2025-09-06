@@ -50,7 +50,7 @@ st.set_page_config(
 st.markdown("""
 <style>
     .main-header {
-        background-color: #009639; /* HSE Green */
+        background-color: #045A4D; /* HSE Green */
         display: flex;
         align-items: center;
         justify-content: center;
@@ -73,7 +73,7 @@ st.markdown("""
         padding: 1rem;
         border-radius: 10px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        border-left: 4px solid #009639; /* HSE Green */
+        border-left: 4px solid #045A4D; /* HSE Green */
         margin: 0.5rem 0;
     }
     
@@ -125,7 +125,7 @@ class AppConfig:
     
     # Colour schemes for consistent branding
     COLOURS = {
-        'primary': '#009639',
+        'primary': '#045A4D',
         'secondary': '#28a745',
         'danger': '#dc3545',
         'warning': '#ffc107',
@@ -1341,6 +1341,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 

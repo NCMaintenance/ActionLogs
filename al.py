@@ -6,6 +6,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 import nltk
 from nltk.corpus import stopwords
 import numpy as np
+from streamlit_plotly_events import plotly_events
 import textwrap
 import re
 import google.generativeai as genai
@@ -47,7 +48,7 @@ HOSPITAL_LOCATIONS = {
     "NGH": {"name": "Nenagh General Hospital", "lat": 52.863, "lon": -8.204},
     "TUH": {"name": "Tipperary University Hospital", "lat": 52.358, "lon": -7.711},
     "WGH": {"name": "Wexford General Hospital", "lat": 52.342, "lon": -6.475},
-    "Sligo": {"name": "Sligo University Hospital", "lat": 54.279, "lon": -8.468},
+    "Sligo": {"name": "Sligo University Hospital", "lat": 54.2743, "lon": -8.4621},
     "LHK": {"name": "Letterkenny University Hospital", "lat": 54.949, "lon": -7.749},
     "MPRH": {"name": "Merlin Park University Hospital", "lat": 53.280, "lon": -9.006}
 }
@@ -176,12 +177,10 @@ def get_hospital_locations_batch(_df, api_key):
     """
     df = _df.copy()
     
-    # 1. Map known locations from the predefined dictionary
     df['name'] = df['HSE Facility'].map(lambda x: HOSPITAL_LOCATIONS.get(x, {}).get('name'))
     df['lat'] = df['HSE Facility'].map(lambda x: HOSPITAL_LOCATIONS.get(x, {}).get('lat'))
     df['lon'] = df['HSE Facility'].map(lambda x: HOSPITAL_LOCATIONS.get(x, {}).get('lon'))
     
-    # 2. Identify facilities that were NOT in the manual list
     unknown_facilities = [
         fac for fac in df['HSE Facility'].dropna().unique() 
         if isinstance(fac, str) and fac.strip() and fac not in HOSPITAL_LOCATIONS
@@ -191,7 +190,6 @@ def get_hospital_locations_batch(_df, api_key):
         st.success("All hospital locations found in the predefined directory.")
         return df
 
-    # 3. If there are unknown facilities, use the Gemini API
     try:
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(model_name='gemini-1.5-flash-latest')
@@ -229,7 +227,6 @@ def get_hospital_locations_batch(_df, api_key):
         
         location_data = json.loads(cleaned_response.group(0))
         
-        # 4. Fill in the missing data with the API results
         for fac, data in location_data.items():
             if data and data.get('name'):
                 df.loc[df['HSE Facility'] == fac, 'name'] = data['name']
@@ -251,8 +248,7 @@ def create_wc_image(text_series):
         return None
     
     stop_words_list = list(stopwords.words('english'))
-    # Use a standard cloud shape by not providing a mask
-    wc = WordCloud(width=800, height=400, background_color='white', colormap='cividis', stopwords=stop_words_list).generate(full_text)
+    wc = WordCloud(width=800, height=400, background_color='white', colormap='plasma', stopwords=stop_words_list).generate(full_text)
     
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.imshow(wc, interpolation='bilinear')
@@ -319,6 +315,12 @@ def run_dashboard():
         df['AI-Generated Topic'].isin(selected_ai_topics)
     ].copy()
     
+    if st.session_state.get('sankey_filter'):
+        filter_label = st.session_state.sankey_filter['label']
+        filter_col = st.session_state.sankey_filter['column']
+        st.info(f"Filtering by Sankey selection: **{filter_label}**")
+        df_filtered = df_filtered[df_filtered[filter_col] == filter_label]
+
     df_filtered['Parent Category'] = df_filtered['Topical Category'].apply(map_topical_category)
 
     if df_filtered.empty:
@@ -338,21 +340,7 @@ def run_dashboard():
     kpi3.metric(label="🟢 Low Risks", value=f"{rating_percentages.get('Low', 0)}%", delta=f"{rating_counts.get('Low', 0)} risks", delta_color="off")
     st.markdown("---")
 
-    st.header("Geographic Risk Analysis")
-    map_df = df_filtered.dropna(subset=['lat', 'lon'])
-    
-    st.info("Displaying risk concentration as a heatmap across Ireland.")
-    if not map_df.empty:
-        m = folium.Map(location=[53.4, -7.9], zoom_start=7)
-        HeatMap(data=map_df[['lat', 'lon']].values.tolist(), radius=15).add_to(m)
-        folium_static(m)
-    else:
-        st.info("No geolocated data available for the current filters.")
-    st.markdown("---")
-
     st.header("Distribution Analysis")
-
-    # --- NEW LAYOUT ---
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("AI-Generated Topic Distribution")
@@ -364,7 +352,6 @@ def run_dashboard():
             title="Distribution of AI-Generated Topics"
         )
         st.plotly_chart(fig_ai_donut, use_container_width=True)
-
     with col2:
         st.subheader("Risk Rating")
         rating_fig = px.bar(df_filtered['Risk Rating'].value_counts(), labels={'x': 'Risk Rating', 'y': 'Count'}, color=df_filtered['Risk Rating'].value_counts().index)
@@ -376,7 +363,6 @@ def run_dashboard():
         st.subheader("Risk Impact Category")
         impact_fig = px.pie(df_filtered, names='Risk Impact Category', hole=0.4)
         st.plotly_chart(impact_fig, use_container_width=True)
-
     with col4:
         st.subheader("Location of Risk Source")
         location_counts = df_filtered['Location of Risk Source'].value_counts().reset_index()
@@ -415,7 +401,11 @@ def run_dashboard():
         fig_facility_treemap.update_layout(margin=dict(t=50, l=25, r=25, b=25))
         st.plotly_chart(fig_facility_treemap, use_container_width=True)
 
-    st.subheader("Risk Flow Analysis") # Renamed for clarity
+    st.subheader("Risk Flow Analysis")
+    if st.session_state.get('sankey_filter') and st.button("Reset Sankey Filter"):
+        st.session_state.sankey_filter = None
+        st.rerun()
+        
     sankey_data = df_filtered.dropna(subset=['Location of Risk Source', 'Risk Rating', 'Parent Category'])
     if not sankey_data.empty:
         nodes_l0, nodes_l1, nodes_l2 = sorted(sankey_data['Location of Risk Source'].unique()), sorted(sankey_data['Risk Rating'].unique()), sorted(sankey_data['Parent Category'].unique())
@@ -446,7 +436,8 @@ def run_dashboard():
                 line=dict(color="black", width=0.5),
                 label=all_nodes,
                 color=node_colors,
-                hovertemplate='%{label} has %{value} risks<extra></extra>'
+                hovertemplate='%{label} has %{value} risks<extra></extra>',
+                font=dict(size=10)
             ),
             link=dict(
                 source=links['source'],
@@ -455,7 +446,20 @@ def run_dashboard():
                 color=link_colors
             ))])
         fig.update_layout(title_text="Risk Flow: Source -> Rating -> Category", font_size=12, height=600, margin=dict(l=20, r=20, t=60, b=20))
-        st.plotly_chart(fig, use_container_width=True)
+        
+        # Use a unique key for plotly_events
+        selected_points = plotly_events(fig, key="sankey_chart_events")
+        if selected_points:
+            point_index = selected_points[0]['pointNumber']
+            clicked_label = all_nodes[point_index]
+            
+            if st.session_state.get('sankey_filter', {}).get('label') != clicked_label:
+                col = 'Parent Category'
+                if clicked_label in nodes_l0: col = 'Location of Risk Source'
+                elif clicked_label in nodes_l1: col = 'Risk Rating'
+                st.session_state.sankey_filter = {'label': clicked_label, 'column': col}
+                st.rerun()
+
     st.markdown("---")
 
     st.header("Textual Insights via Word Clouds")
@@ -476,6 +480,17 @@ def run_dashboard():
                 st.image(img_buf)
             else:
                 st.info("Not enough data for Impact Description word cloud.")
+    st.markdown("---")
+
+    st.header("Geographic Risk Analysis")
+    map_df = df_filtered.dropna(subset=['lat', 'lon'])
+    st.info("Displaying risk concentration as a heatmap across Ireland.")
+    if not map_df.empty:
+        m = folium.Map(location=[53.4, -7.9], zoom_start=7)
+        HeatMap(data=map_df[['lat', 'lon']].values.tolist(), radius=15).add_to(m)
+        folium_static(m)
+    else:
+        st.info("No geolocated data available for the current filters.")
     st.markdown("---")
     
     st.header("Filtered Data Details")

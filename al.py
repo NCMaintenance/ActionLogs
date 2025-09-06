@@ -77,7 +77,10 @@ def load_and_merge_data(uploaded_file):
                 merged_df['Location of Risk Source'] = merged_df['Location of Risk Source'].astype(str).str.strip()
                 merged_df = merged_df.assign(**{'Location of Risk Source': merged_df['Location of Risk Source'].str.split('/')}).explode('Location of Risk Source')
                 merged_df['Location of Risk Source'] = merged_df['Location of Risk Source'].str.strip()
+                # Clean up any blank entries that might result from splitting
+                merged_df = merged_df[merged_df['Location of Risk Source'].str.strip() != '']
                 merged_df.reset_index(drop=True, inplace=True)
+
 
             return merged_df
         else:
@@ -209,16 +212,35 @@ def get_hospital_locations_batch(_df, api_key):
 
 
 # --- Other Helper Functions ---
-def create_wc_image(text_series):
+def create_letter_mask(letter):
+    """Creates a numpy mask array for a given letter ('R' or 'I')."""
+    mask = np.zeros((300, 300), dtype=np.uint8)
+    if letter == 'R':
+        mask[50:250, 50:90] = 255  # Vertical bar
+        mask[50:140, 90:210] = 255 # Top bowl
+        mask[80:110, 110:190] = 0   # Hollow part of bowl
+        mask[140:250, 90:150] = 255 # Diagonal leg
+        mask[140:160, 90:210] = 0
+        for i in range(140, 250):
+            for j in range(90, 210):
+                if not (j > 110 + (i-140)*0.5 and j < 140 + (i-140)*0.5) :
+                     mask[i, j] = 0
+    elif letter == 'I':
+        mask[50:80, 50:250] = 255   # Top bar
+        mask[80:220, 130:170] = 255 # Vertical bar
+        mask[220:250, 50:250] = 255 # Bottom bar
+    return mask
+
+def create_wc_image(text_series, mask):
     """Generates a classic word cloud image from a pandas Series of text."""
     full_text = ' '.join(text_series.dropna().astype(str))
     if not full_text:
         return None
     
     stop_words_list = list(stopwords.words('english'))
-    wc = WordCloud(width=800, height=400, background_color='white', colormap='viridis', stopwords=stop_words_list).generate(full_text)
+    wc = WordCloud(width=800, height=800, background_color='white', colormap='cividis', stopwords=stop_words_list, mask=mask).generate(full_text)
     
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=(10, 10))
     ax.imshow(wc, interpolation='bilinear')
     ax.axis('off')
     
@@ -315,43 +337,11 @@ def run_dashboard():
     st.header("Geographic Risk Analysis")
     map_df = df_filtered.dropna(subset=['lat', 'lon'])
     
-    map_display_mode = st.selectbox(
-        "Select Map Display Mode:",
-        ["Risk Heatmap", "Internal/External Breakdown", "AI Topic Breakdown"]
-    )
-
+    # --- SIMPLIFIED MAP: Only heatmap is shown for performance ---
+    st.info("Displaying risk concentration as a heatmap across Ireland.")
     if not map_df.empty:
         m = folium.Map(location=[53.4, -7.9], zoom_start=7)
-        
-        # --- NEW: Marker Clustering for Performance ---
-        marker_cluster = MarkerCluster().add_to(m)
-
-        if map_display_mode == "Risk Heatmap":
-            HeatMap(data=map_df[['lat', 'lon']].values.tolist(), radius=15).add_to(m)
-        else:
-            locations = map_df.groupby(['HSE Facility', 'name', 'lat', 'lon']).size().reset_index(name='count')
-            for idx, row in locations.iterrows():
-                popup_html = f"<b>{row['name']}</b><br>Total Risks: {row['count']}<br><hr>"
-                
-                if map_display_mode == "Internal/External Breakdown":
-                    data = map_df[map_df['HSE Facility'] == row['HSE Facility']]['Location of Risk Source'].value_counts()
-                    popup_html += "<b>Internal/External Risks:</b><br>"
-                else: # AI Topic Breakdown
-                    data = map_df[map_df['HSE Facility'] == row['HSE Facility']]['AI-Generated Topic'].value_counts()
-                    popup_html += "<b>AI-Generated Topics:</b><br>"
-                
-                if not data.empty:
-                    for label, count in data.items():
-                        popup_html += f"- {label}: {count}<br>"
-                
-                popup = folium.Popup(popup_html, max_width=300)
-
-                folium.Marker(
-                    [row['lat'], row['lon']],
-                    popup=popup,
-                    tooltip=row['name']
-                ).add_to(marker_cluster)
-        
+        HeatMap(data=map_df[['lat', 'lon']].values.tolist(), radius=15).add_to(m)
         folium_static(m)
     else:
         st.info("No geolocated data available for the current filters.")
@@ -476,7 +466,8 @@ def run_dashboard():
     with col_wc1:
         st.subheader("Risk Description")
         if 'Risk Description' in df_filtered.columns:
-            img_buf = create_wc_image(df_filtered['Risk Description'])
+            risk_mask = create_letter_mask('R')
+            img_buf = create_wc_image(df_filtered['Risk Description'], mask=risk_mask)
             if img_buf:
                 st.image(img_buf)
             else:
@@ -484,7 +475,8 @@ def run_dashboard():
     with col_wc2:
         st.subheader("Impact Description")
         if 'Impact Description' in df_filtered.columns:
-            img_buf = create_wc_image(df_filtered['Impact Description'])
+            impact_mask = create_letter_mask('I')
+            img_buf = create_wc_image(df_filtered['Impact Description'], mask=impact_mask)
             if img_buf:
                 st.image(img_buf)
             else:
@@ -502,9 +494,7 @@ def main():
     def check_credentials():
         """Validates credentials against st.secrets."""
         try:
-            if (
-                st.session_state["password"] == st.secrets["PASSWORD"]
-            ):
+            if st.session_state["password"] == st.secrets["PASSWORD"]:
                 st.session_state.authenticated = True
             else:
                 st.session_state.authenticated = False
@@ -517,11 +507,12 @@ def main():
         if st.button("Log in"):
             check_credentials()
             if not st.session_state.authenticated:
-                st.error("😕 Invalid username or password")
+                st.error("😕 Invalid password")
             else:
                 st.rerun()
     
     if st.session_state.authenticated:
+        st.sidebar.success("Logged in successfully!")
         run_dashboard()
 
 

@@ -32,7 +32,6 @@ def download_nltk_stopwords():
     try:
         nltk.data.find('corpora/stopwords')
     except LookupError:
-        st.info("Downloading NLTK data (stopwords)...")
         nltk.download('stopwords')
 
 # --- Predefined Hospital Locations ---
@@ -94,8 +93,8 @@ def load_and_merge_data(uploaded_file):
                 merged_df['Location of Risk Source'] = merged_df['Location of Risk Source'].astype(str).str.strip()
                 merged_df = merged_df.assign(**{'Location of Risk Source': merged_df['Location of Risk Source'].str.split('/')}).explode('Location of Risk Source')
                 merged_df['Location of Risk Source'] = merged_df['Location of Risk Source'].str.strip()
-                # Clean up any blank entries that might result from splitting
-                merged_df = merged_df[merged_df['Location of Risk Source'].str.strip() != '']
+                # Clean up any blank entries AND 'nan' strings that might result from splitting
+                merged_df = merged_df[~merged_df['Location of Risk Source'].isin(['', 'nan'])]
                 merged_df.reset_index(drop=True, inplace=True)
 
 
@@ -151,21 +150,19 @@ def assign_gemini_topics_batch(_df, api_key):
     **Your JSON Response:**
     """
     
-    st.info(f"Sending {len(unique_topics)} unique categories to the AI for classification...")
-    
-    try:
-        response = model.generate_content(prompt)
-        cleaned_response = re.search(r'\{.*\}', response.text, re.DOTALL)
-        if not cleaned_response:
-            raise ValueError("The AI response did not contain a valid JSON object.")
-        category_map = json.loads(cleaned_response.group(0))
-    except Exception as e:
-        st.error(f"An error occurred during AI topic classification: {e}")
-        df['AI-Generated Topic'] = "Other"
-        return df
-    
-    df['AI-Generated Topic'] = df['Topical Category'].map(category_map).fillna("Other")
-    st.success(f"AI topic classification complete!")
+    with st.spinner(f"Sending {len(unique_topics)} unique categories to the AI for classification..."):
+        try:
+            response = model.generate_content(prompt)
+            cleaned_response = re.search(r'\{.*\}', response.text, re.DOTALL)
+            if not cleaned_response:
+                raise ValueError("The AI response did not contain a valid JSON object.")
+            category_map = json.loads(cleaned_response.group(0))
+        except Exception as e:
+            st.error(f"An error occurred during AI topic classification: {e}")
+            df['AI-Generated Topic'] = "Other"
+            return df
+        
+        df['AI-Generated Topic'] = df['Topical Category'].map(category_map).fillna("Other")
     return df
 
 @st.cache_data
@@ -186,7 +183,6 @@ def get_hospital_locations_batch(_df, api_key):
     ]
     
     if not unknown_facilities:
-        st.success("All hospital locations found in the predefined directory.")
         return df
 
     try:
@@ -205,26 +201,24 @@ def get_hospital_locations_batch(_df, api_key):
     **Your JSON Response:**
     """
 
-    st.info(f"Looking up {len(unknown_facilities)} unknown facilities with the AI...")
+    with st.spinner(f"Looking up {len(unknown_facilities)} unknown facilities with the AI..."):
+        try:
+            response = model.generate_content(prompt)
+            cleaned_response = re.search(r'\{.*\}', response.text, re.DOTALL)
+            if not cleaned_response:
+                raise ValueError("The AI response for geolocation did not contain a valid JSON object.")
+            
+            location_data = json.loads(cleaned_response.group(0))
+            
+            for fac, data in location_data.items():
+                if data and data.get('name'):
+                    df.loc[df['HSE Facility'] == fac, 'name'] = data['name']
+                    df.loc[df['HSE Facility'] == fac, 'lat'] = data['lat']
+                    df.loc[df['HSE Facility'] == fac, 'lon'] = data['lon']
 
-    try:
-        response = model.generate_content(prompt)
-        cleaned_response = re.search(r'\{.*\}', response.text, re.DOTALL)
-        if not cleaned_response:
-            raise ValueError("The AI response for geolocation did not contain a valid JSON object.")
-        
-        location_data = json.loads(cleaned_response.group(0))
-        
-        for fac, data in location_data.items():
-            if data and data.get('name'):
-                df.loc[df['HSE Facility'] == fac, 'name'] = data['name']
-                df.loc[df['HSE Facility'] == fac, 'lat'] = data['lat']
-                df.loc[df['HSE Facility'] == fac, 'lon'] = data['lon']
-
-    except Exception as e:
-        st.error(f"An error occurred during AI geolocation for unknown facilities: {e}")
+        except Exception as e:
+            st.error(f"An error occurred during AI geolocation for unknown facilities: {e}")
     
-    st.success("AI geolocation complete!")
     return df
 
 
@@ -454,15 +448,15 @@ def run_dashboard():
             else:
                 st.info("Not enough data for Impact Description word cloud.")
     st.markdown("---")
-
+    
     st.header("Geographic Risk Analysis")
     map_df = df_filtered.dropna(subset=['lat', 'lon'])
     
     st.subheader("Risk Heatmap")
     if not map_df.empty:
-        m1 = folium.Map(location=[53.4, -7.9], zoom_start=7)
-        HeatMap(data=map_df[['lat', 'lon']].values.tolist(), radius=15).add_to(m1)
-        folium_static(m1, key="heatmap_map_final")
+        m = folium.Map(location=[53.4, -7.9], zoom_start=7)
+        HeatMap(data=map_df[['lat', 'lon']].values.tolist(), radius=15).add_to(m)
+        folium_static(m, key="heatmap_map_final")
     else:
         st.info("No geolocated data for heatmap.")
 
@@ -503,4 +497,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 

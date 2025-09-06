@@ -84,7 +84,6 @@ st.markdown("""
         padding: 1rem;
         border-radius: 10px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        border-left: 4px solid #045A4D; /* HSE Green */
         margin: 0.5rem 0;
     }
     
@@ -1366,6 +1365,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 

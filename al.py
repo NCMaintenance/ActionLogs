@@ -503,8 +503,7 @@ def main():
         """Validates credentials against st.secrets."""
         try:
             if (
-                st.session_state["username"] == st.secrets["USERNAME"]
-                and st.session_state["password"] == st.secrets["PASSWORD"]
+                st.session_state["password"] == st.secrets["PASSWORD"]
             ):
                 st.session_state.authenticated = True
             else:
@@ -514,7 +513,6 @@ def main():
     
     if not st.session_state.authenticated:
         st.title("🔐 Login")
-        st.text_input("Username", key="username")
         st.text_input("Password", type="password", key="password")
         if st.button("Log in"):
             check_credentials()

@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 # --- Page Configuration ---
 st.set_page_config(
     page_title="HSE Risk Analysis Dashboard",
-    page_icon="🏥",
+    page_icon="https://www.hse.ie/favicon-32x32.png",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
@@ -662,7 +662,7 @@ def create_professional_filters(df: pd.DataFrame) -> Dict:
     
     # Risk rating filter
     st.sidebar.markdown("**⚠️ Risk Priority Levels**")
-    rating_options = sorted(df['Risk Rating'].dropna().unique())
+    rating_options = sorted(df['Risk Rating'].unique())
     filters['risk_ratings'] = st.sidebar.multiselect(
         "Filter by risk priority:",
         options=rating_options,
@@ -683,7 +683,7 @@ def create_professional_filters(df: pd.DataFrame) -> Dict:
     
     # Location filter
     st.sidebar.markdown("**📍 Risk Source Locations**")
-    location_options = sorted(df['Location of Risk Source'].dropna().unique())
+    location_options = sorted(df['Location of Risk Source'].unique())
     filters['locations'] = st.sidebar.multiselect(
         "Filter by risk source:",
         options=location_options,
@@ -693,7 +693,7 @@ def create_professional_filters(df: pd.DataFrame) -> Dict:
     
     # Impact category filter
     st.sidebar.markdown("**💥 Impact Categories**")
-    impact_options = sorted(df['Risk Impact Category'].dropna().unique())
+    impact_options = sorted(df['Risk Impact Category'].unique())
     filters['impact_categories'] = st.sidebar.multiselect(
         "Filter by impact type:",
         options=impact_options,
@@ -1341,6 +1341,8 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
 
 
 

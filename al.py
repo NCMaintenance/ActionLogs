@@ -68,6 +68,17 @@ st.markdown("""
         text-align: left;
     }
     
+    .login-container .stButton > button {
+        background-color: white;
+        color: black;
+        border: 1px solid #ced4da;
+    }
+    .login-container .stButton > button:hover {
+        background-color: #f0f2f6;
+        border-color: #045A4D;
+        color: #045A4D;
+    }
+    
     .metric-container {
         background: white;
         padding: 1rem;
@@ -1282,13 +1293,14 @@ def main():
     if not st.session_state.authenticated:
         st.markdown("""
         <div class="main-header">
-            <h1>🔐 HSE Risk Analysis Dashboard</h1>
+            <h1>🔐 Risk Analysis Dashboard</h1>
             <p>Secure Access Portal</p>
         </div>
         """, unsafe_allow_html=True)
         
         st.markdown("### Please enter your credentials to access the dashboard")
         
+        st.markdown('<div class="login-container">', unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             st.text_input(
@@ -1299,8 +1311,7 @@ def main():
             )
             
             login_button = st.button(
-                "🚀 Access Dashboard",
-                type="primary",
+                "Login",
                 use_container_width=True
             )
             
@@ -1311,6 +1322,7 @@ def main():
                     st.rerun()
                 else:
                     show_error_message("Invalid credentials. Please check your password and try again.")
+        st.markdown('</div>', unsafe_allow_html=True)
         
         # Show system info
         st.markdown("---")
@@ -1354,6 +1366,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 

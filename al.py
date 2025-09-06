@@ -201,19 +201,8 @@ def get_hospital_locations_batch(_df, api_key):
     You are a geolocation expert for Ireland. Given a JSON list of Irish hospital abbreviations, your task is to identify their full official names and geographic coordinates.
     Your response MUST be a single, valid JSON object. Each key should be the original hospital abbreviation. The value should be another JSON object containing three keys: "name" (the full official hospital name), "lat" (latitude), and "lon" (longitude).
     If you cannot identify a hospital, use null for its values.
-
-    **Example Input:**
-    ["UHK", "SJH"]
-
-    **Example Response:**
-    {{
-      "UHK": {{"name": "University Hospital Kerry", "lat": 52.268, "lon": -9.692}},
-      "SJH": {{"name": "St. James's Hospital", "lat": 53.337, "lon": -6.301}}
-    }}
-
     **JSON List of Hospitals to Geocode:**
     {unique_facilities_json}
-
     **Your JSON Response:**
     """
 
@@ -266,7 +255,7 @@ def create_pie_chart_image(data, title):
         return None
     
     plt.style.use('seaborn-v0_8-whitegrid')
-    fig, ax = plt.subplots(figsize=(3.5, 3.5)) # Small figure size for popups
+    fig, ax = plt.subplots(figsize=(3.5, 3.5))
     ax.pie(data, labels=data.index, autopct='%1.1f%%', startangle=90, textprops={'fontsize': 9})
     ax.axis('equal')
     ax.set_title(title, fontsize=12)
@@ -389,8 +378,13 @@ def run_dashboard():
     col_hier1, col_hier2 = st.columns(2)
     with col_hier1:
         st.subheader("Sunburst View")
-        sunburst_data = df_filtered.dropna(subset=['Location of Risk Source', 'Risk Rating', 'Parent Category', 'Topical Category'])
+        # Create a copy for the sunburst to apply wrapping without affecting other charts
+        sunburst_data = df_filtered.dropna(subset=['Location of Risk Source', 'Risk Rating', 'Parent Category', 'Topical Category']).copy()
         if not sunburst_data.empty:
+            # Wrap text for each level of the sunburst
+            for col in ['Location of Risk Source', 'Risk Rating', 'Parent Category', 'Topical Category']:
+                 sunburst_data[col] = sunburst_data[col].astype(str).apply(lambda x: '<br>'.join(textwrap.wrap(x, width=20)))
+            
             fig_sunburst = px.sunburst(
                 sunburst_data,
                 path=['Location of Risk Source', 'Risk Rating', 'Parent Category', 'Topical Category'],
@@ -416,7 +410,6 @@ def run_dashboard():
     st.subheader("Risk Flow Analysis")
     sankey_data = df_filtered.dropna(subset=['Location of Risk Source', 'Risk Rating', 'Parent Category'])
     if not sankey_data.empty:
-        # Robustly create the list of nodes, ensuring they are all strings
         nodes_l0 = sorted(sankey_data['Location of Risk Source'].astype(str).unique())
         nodes_l1 = sorted(sankey_data['Risk Rating'].astype(str).unique())
         nodes_l2 = sorted(sankey_data['Parent Category'].astype(str).unique())
@@ -486,7 +479,7 @@ def run_dashboard():
         if not map_df.empty:
             m1 = folium.Map(location=[53.4, -7.9], zoom_start=7)
             HeatMap(data=map_df[['lat', 'lon']].values.tolist(), radius=15).add_to(m1)
-            folium_static(m1, key="heatmap")
+            folium_static(m1, key="heatmap_map")
         else:
             st.info("No geolocated data for heatmap.")
     

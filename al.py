@@ -831,7 +831,13 @@ def create_geographic_analysis(df: pd.DataFrame) -> None:
         
         # Add heatmap layer
         heat_data = [[row['lat'], row['lon']] for _, row in map_df.iterrows()]
-        HeatMap(heat_data, radius=20, blur=15, max_zoom=1).add_to(m)
+        HeatMap(
+            heat_data, 
+            radius=20, 
+            blur=15, 
+            max_zoom=1, 
+            gradient={0.2: 'blue', 0.6: 'cyan', 1: 'yellow'}
+        ).add_to(m)
         
         # Add facility markers with risk counts
         facility_risk_counts = map_df.groupby(['HSE Facility', 'name', 'lat', 'lon']).size().reset_index(name='risk_count')
@@ -928,7 +934,7 @@ def create_advanced_analytics(df: pd.DataFrame) -> None:
         )
     )])
     
-    fig.update_layout(title_text="Risk Flow: Source → Priority → Category", font=dict(size=12), height=1000)
+    fig.update_layout(title_text="Risk Flow: Source → Priority → Category", font=dict(size=14), height=900)
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -1320,6 +1326,13 @@ def main():
     # Main dashboard (authenticated users)
     if st.session_state.authenticated:
         
+        # Add logo to sidebar
+        logo_url = "https://www.hse.ie/image-library/hse-site-logo-2021.svg"
+        st.sidebar.markdown(
+            f'<img src="{logo_url}" alt="HSE Logo" style="width: 100%; margin-bottom: 20px;">',
+            unsafe_allow_html=True
+        )
+        
         # Sidebar authentication status
         st.sidebar.success("🟢 Authenticated")
         st.sidebar.markdown(f"**User:** Authorised Personnel")
@@ -1341,6 +1354,8 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
 
 
 

@@ -197,7 +197,7 @@ def download_nltk_stopwords() -> None:
 
 def show_professional_header() -> None:
     """Display professional header with branding"""
-    logo_url = "https://www.hse.ie/eng/about/who/communications/branding/logo/hse-logo-eng.png"
+    logo_url = "https://www.hse.ie/image-library/hse-site-logo-2021.svg"
     st.markdown(f"""
     <div class="main-header">
         <img src="{logo_url}" alt="HSE Logo">
@@ -1341,6 +1341,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 

@@ -458,43 +458,13 @@ def run_dashboard():
     st.header("Geographic Risk Analysis")
     map_df = df_filtered.dropna(subset=['lat', 'lon'])
     
-    # --- NEW: Single Map with Radio Button Toggle ---
-    map_view = st.radio(
-        "Select Geographic View:",
-        ('Risk Heatmap', 'AI Topics by Hospital'),
-        horizontal=True,
-        key="map_view_selector"
-    )
-
+    st.subheader("Risk Heatmap")
     if not map_df.empty:
-        # Create the map object once
-        m = folium.Map(location=[53.4, -7.9], zoom_start=7)
-        
-        if map_view == 'Risk Heatmap':
-            HeatMap(data=map_df[['lat', 'lon']].values.tolist(), radius=15).add_to(m)
-        else: # AI Topics by Hospital
-            locations = map_df.groupby(['HSE Facility', 'name', 'lat', 'lon']).size().reset_index(name='count')
-            for idx, row in locations.iterrows():
-                hospital_data = map_df[map_df['HSE Facility'] == row['HSE Facility']]
-                ai_topic_counts = hospital_data['AI-Generated Topic'].value_counts()
-                
-                # Use simplified text popup for performance
-                popup_html = f"<b>{row['name']}</b><br>Total Risks: {row['count']}<br><hr><b>AI Topics:</b><br>"
-                if not ai_topic_counts.empty:
-                    for topic, count in ai_topic_counts.items():
-                        popup_html += f"- {topic}: {count}<br>"
-                
-                popup = folium.Popup(popup_html, max_width=400)
-                folium.Marker(
-                    [row['lat'], row['lon']],
-                    popup=popup,
-                    tooltip=row['name']
-                ).add_to(m)
-
-        # Display the single map
-        folium_static(m, key="unified_map_view")
+        m1 = folium.Map(location=[53.4, -7.9], zoom_start=7)
+        HeatMap(data=map_df[['lat', 'lon']].values.tolist(), radius=15).add_to(m1)
+        folium_static(m1, key="heatmap_map_final")
     else:
-        st.info("No geolocated data available for the current filters.")
+        st.info("No geolocated data for heatmap.")
 
     st.markdown("---")
     

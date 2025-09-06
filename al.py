@@ -847,7 +847,6 @@ def create_geographic_analysis(df: pd.DataFrame) -> None:
             radius=25, 
             blur=15, 
             max_zoom=1, 
-            gradient={0.4: 'blue', 0.65: 'lime', 1: 'yellow'},
             min_opacity=0.2
         ).add_to(m)
         
@@ -1367,6 +1366,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 

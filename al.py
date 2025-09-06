@@ -6,7 +6,6 @@ from sklearn.feature_extraction.text import CountVectorizer
 import nltk
 from nltk.corpus import stopwords
 import numpy as np
-from streamlit_plotly_events import plotly_events
 import textwrap
 import re
 import google.generativeai as genai
@@ -417,7 +416,11 @@ def run_dashboard():
     st.subheader("Risk Flow Analysis")
     sankey_data = df_filtered.dropna(subset=['Location of Risk Source', 'Risk Rating', 'Parent Category'])
     if not sankey_data.empty:
-        nodes_l0, nodes_l1, nodes_l2 = sorted(sankey_data['Location of Risk Source'].unique()), sorted(sankey_data['Risk Rating'].unique()), sorted(sankey_data['Parent Category'].unique())
+        # Robustly create the list of nodes, ensuring they are all strings
+        nodes_l0 = sorted(sankey_data['Location of Risk Source'].astype(str).unique())
+        nodes_l1 = sorted(sankey_data['Risk Rating'].astype(str).unique())
+        nodes_l2 = sorted(sankey_data['Parent Category'].astype(str).unique())
+        
         all_nodes = nodes_l0 + nodes_l1 + nodes_l2
         node_map = {node: i for i, node in enumerate(all_nodes)}
         
@@ -426,18 +429,15 @@ def run_dashboard():
         node_colors = [color_map[node] for node in all_nodes]
 
         sankey_df_1 = sankey_data.groupby(['Location of Risk Source', 'Risk Rating']).size().reset_index(name='value')
-        sankey_df_1['source'], sankey_df_1['target'] = sankey_df_1['Location of Risk Source'].map(node_map), sankey_df_1['Risk Rating'].map(node_map)
+        sankey_df_1['source'] = sankey_df_1['Location of Risk Source'].map(node_map)
+        sankey_df_1['target'] = sankey_df_1['Risk Rating'].map(node_map)
         
         sankey_df_2 = sankey_data.groupby(['Risk Rating', 'Parent Category']).size().reset_index(name='value')
-        sankey_df_2['source'], sankey_df_2['target'] = sankey_df_2['Risk Rating'].map(node_map), sankey_df_2['Parent Category'].map(node_map)
+        sankey_df_2['source'] = sankey_df_2['Risk Rating'].map(node_map)
+        sankey_df_2['target'] = sankey_df_2['Parent Category'].map(node_map)
         
-        links = pd.concat([sankey_df_1, sankey_df_2], axis=0)
+        links = pd.concat([sankey_df_1, sankey_df_2], axis=0).dropna(subset=['source', 'target'])
         
-        link_colors = []
-        for src_idx in links['source']:
-            color = color_map[all_nodes[src_idx]]
-            link_colors.append(f"rgba({int(color[1:3], 16)}, {int(color[3:5], 16)}, {int(color[5:7], 16)}, 0.4)")
-
         fig = go.Figure(data=[go.Sankey(
             node=dict(
                 pad=25,
@@ -445,17 +445,16 @@ def run_dashboard():
                 line=dict(color="black", width=0.5),
                 label=all_nodes,
                 color=node_colors,
-                hovertemplate='%{label} has %{value} risks<extra></extra>',
-                font=dict(size=10)
+                hovertemplate='%{label} has %{value} risks<extra></extra>'
             ),
             link=dict(
-                source=links['source'],
-                target=links['target'],
-                value=links['value'],
-                color=link_colors
+                source=links['source'].astype(int),
+                target=links['target'].astype(int),
+                value=links['value']
             ))])
-        fig.update_layout(title_text="Risk Flow: Source -> Rating -> Category", font_size=12, height=600, margin=dict(l=20, r=20, t=60, b=20))
+        fig.update_layout(title_text="Risk Flow: Source -> Rating -> Category", font_size=10, height=600, margin=dict(l=20, r=20, t=60, b=20))
         st.plotly_chart(fig, use_container_width=True)
+
     st.markdown("---")
 
     st.header("Textual Insights via Word Clouds")

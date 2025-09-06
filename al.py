@@ -840,17 +840,18 @@ def create_geographic_analysis(df: pd.DataFrame) -> None:
             tiles='OpenStreetMap'
         )
         
-        # Add heatmap layer
+        # Add heatmap layer with a blue-yellow gradient
         heat_data = [[row['lat'], row['lon']] for _, row in map_df.iterrows()]
         HeatMap(
             heat_data, 
-            radius=20, 
+            radius=25, 
             blur=15, 
             max_zoom=1, 
-            gradient={0.2: 'blue', 0.6: 'cyan', 1: 'yellow'}
+            gradient={0.4: 'blue', 0.65: 'lime', 1: 'yellow'},
+            min_opacity=0.2
         ).add_to(m)
         
-        # Add facility markers with risk counts
+        # Add facility markers with risk counts, now in brand green
         facility_risk_counts = map_df.groupby(['HSE Facility', 'name', 'lat', 'lon']).size().reset_index(name='risk_count')
         
         for _, row in facility_risk_counts.iterrows():
@@ -863,10 +864,10 @@ def create_geographic_analysis(df: pd.DataFrame) -> None:
                 
                 folium.CircleMarker(
                     location=[row['lat'], row['lon']],
-                    radius=max(5, min(15, row['risk_count'])),
+                    radius=max(5, min(15, row['risk_count'] // 2)),
                     popup=folium.Popup(popup_text, max_width=300),
-                    color='red',
-                    fillColor='red',
+                    color=AppConfig.COLOURS['primary'],
+                    fillColor=AppConfig.COLOURS['primary'],
                     fillOpacity=0.7
                 ).add_to(m)
         
@@ -953,7 +954,7 @@ def create_text_analytics(df: pd.DataFrame) -> None:
     """Create enhanced text analytics section"""
     st.markdown('<div class="section-header"><h3>📝 Text Analytics & Insights</h3></div>', unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
+    col1, spacer, col2 = st.columns([10, 1, 10]) # Use a spacer column
     
     with col1:
         st.subheader("☁️ Risk Description Word Cloud")
@@ -1366,6 +1367,8 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
 
 
 

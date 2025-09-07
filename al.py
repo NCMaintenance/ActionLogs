@@ -1356,6 +1356,9 @@ def main():
             f'<img src="{logo_url}" alt="HSE Logo" style="width: 100%; margin-bottom: 20px;">',
             unsafe_allow_html=True
         )
+
+        if st.sidebar.button("Created by Dave Maher"):
+            st.sidebar.write("This application intellectual property belongs to Dave Maher.")
         
         # Sidebar authentication status
         st.sidebar.success("🟢 Authenticated")

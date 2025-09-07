@@ -864,8 +864,8 @@ def create_geographic_analysis(df: pd.DataFrame) -> None:
                     location=[row['lat'], row['lon']],
                     radius=max(5, min(15, row['risk_count'] // 2)),
                     popup=folium.Popup(popup_text, max_width=300),
-                    color=AppConfig.COLOURS['primary'],
-                    #fillColor=AppConfig.COLOURS['primary'],
+                    #color=AppConfig.COLOURS['primary'],
+                    fillColor=AppConfig.COLOURS['primary'],
                     fillOpacity=0.0
                 ).add_to(m)
         

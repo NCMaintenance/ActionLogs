@@ -21,6 +21,7 @@ import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 import time
+import pytz
 
 # Configure logging
 logging.basicConfig(
@@ -1266,16 +1267,21 @@ def run_professional_dashboard():
         )
     
     # Footer
+    # Set timezone to Dublin
+    irish_tz = pytz.timezone("Europe/Dublin")
+    
+    # Get current time in Dublin
+    irish_time = datetime.now(irish_tz)
     st.markdown("""
     <div class="footer">
         <hr>
         <p><strong>{}</strong> | Version {} | Generated on {}</p>
-        <p>Powered by AI-driven analytics | © {} Healthcare Risk Management Team</p>
+        <p>Created by Dave Maher | For HSE internal use.</p>
     </div>
     """.format(
         AppConfig.APP_NAME,
         AppConfig.APP_VERSION, 
-        datetime.now().strftime("%B %d, %Y at %I:%M %p"),
+        irish_time.now().strftime("%B %d, %Y at %I:%M %p"),
         datetime.now().year
     ), unsafe_allow_html=True)
 

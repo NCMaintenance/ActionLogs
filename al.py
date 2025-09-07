@@ -862,11 +862,11 @@ def create_geographic_analysis(df: pd.DataFrame) -> None:
                 
                 folium.CircleMarker(
                     location=[row['lat'], row['lon']],
-                    radius=max(5, min(15, row['risk_count'] // 2)),
-                    popup=folium.Popup(popup_text, max_width=300),
-                    #color=AppConfig.COLOURS['primary'],
-                    fillColor=AppConfig.COLOURS['primary'],
-                    fillOpacity=0.0
+                    radius=max(5, min(15, row['risk_count'])),
+                    popup=f"<b>{row['name'] or row['HSE Facility']}</b><br>Total Risks: {row['risk_count']}",
+                    color=AppConfig.COLORS['primary'],
+                    weight=2.5, # Make the ring a bit thicker to be visible
+                    fill=False # This makes the inside transparent
                 ).add_to(m)
         
         folium_static(m, height=500)

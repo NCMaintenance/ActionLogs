@@ -562,7 +562,7 @@ def get_hospital_locations_batch(_df: pd.DataFrame, api_key: str) -> pd.DataFram
                         df.loc[mask, 'lat'] = data.get('lat')
                         df.loc[mask, 'lon'] = data.get('lon')
                 
-                show_success_message(f"Successfully located {len(location_data)} facilities.")
+                #show_success_message(f"Successfully located {len(location_data)} facilities.")
             else:
                 show_warning_message("Could not parse location data from AI response.")
                 
@@ -874,7 +874,7 @@ def create_geographic_analysis(df: pd.DataFrame) -> None:
                     weight=0,  # Set border weight to 0 to remove it
                     fill=True,
                     fillColor=AppConfig.COLOURS['primary'],
-                    fillOpacity=0.7 # Make the fill semi-transparent and visible
+                    fillOpacity=0 # Make the fill semi-transparent and visible
                 ).add_to(m)
         
         folium_static(m, height=500)

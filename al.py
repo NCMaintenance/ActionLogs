@@ -1357,13 +1357,15 @@ def main():
             unsafe_allow_html=True
         )
 
-        if st.sidebar.button("Created by Dave Maher"):
-            st.sidebar.write("This application intellectual property belongs to Dave Maher.")
+
         
         # Sidebar authentication status
         st.sidebar.success("🟢 Authenticated")
         st.sidebar.markdown(f"**User:** Authorised Personnel")
         st.sidebar.markdown(f"**Session:** Active")
+        
+        if st.sidebar.button("Created by Dave Maher"):
+            st.sidebar.write("This application intellectual property belongs to Dave Maher.")
         
         if st.sidebar.button("🚪 Logout", help="End your session and return to login"):
             st.session_state.authenticated = False

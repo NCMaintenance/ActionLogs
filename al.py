@@ -1281,7 +1281,7 @@ def run_professional_dashboard():
     """.format(
         AppConfig.APP_NAME,
         AppConfig.APP_VERSION, 
-        irish_time.now().strftime("%B %d, %Y at %I:%M %p"),
+        irish_time.strftime("%B %d, %Y at %I:%M %p")
         datetime.now().year
     ), unsafe_allow_html=True)
 

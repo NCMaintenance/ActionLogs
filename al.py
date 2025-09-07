@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Risk Analysis Dashboard",
+    page_title="HSE Risk Analysis Dashboard",
     page_icon="https://www.hse.ie/favicon-32x32.png",
     layout="wide",
     initial_sidebar_state="expanded",

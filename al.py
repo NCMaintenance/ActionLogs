@@ -866,7 +866,7 @@ def create_geographic_analysis(df: pd.DataFrame) -> None:
                     popup=folium.Popup(popup_text, max_width=300),
                     color=AppConfig.COLOURS['primary'],
                     fillColor=AppConfig.COLOURS['primary'],
-                    fillOpacity=0.7
+                    fillOpacity=0.0
                 ).add_to(m)
         
         folium_static(m, height=500)

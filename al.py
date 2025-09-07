@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -129,7 +128,7 @@ st.markdown("""
 # --- Professional Constants ---
 class AppConfig:
     """Application configuration constants"""
-    APP_VERSION = "2.1.0"
+    APP_VERSION = "2.1.1"
     APP_NAME = "HSE Risk Analysis Dashboard"
     AUTHOR = "Healthcare Risk Management Team"
     LAST_UPDATED = "September 2025"
@@ -756,9 +755,12 @@ def create_risk_distribution_analysis(df: pd.DataFrame) -> None:
         if 'AI-Generated Topic' in df.columns:
             ai_topic_counts = df['AI-Generated Topic'].value_counts()
             
+            # --- MODIFICATION: Wrap long labels for better readability in the pie chart ---
+            wrapped_labels = ['<br>'.join(textwrap.wrap(label, 25)) for label in ai_topic_counts.index]
+            
             fig_ai_donut = px.pie(
                 values=ai_topic_counts.values,
-                names=ai_topic_counts.index,
+                names=wrapped_labels, # Use wrapped labels
                 hole=0.4,
                 title="AI Classification Results",
                 color_discrete_sequence=px.colors.qualitative.Set3
@@ -793,9 +795,12 @@ def create_risk_distribution_analysis(df: pd.DataFrame) -> None:
         st.subheader("💥 Impact Category Analysis")
         impact_counts = df['Risk Impact Category'].value_counts()
         
+        # --- MODIFICATION: Wrap long labels for better readability in the pie chart ---
+        wrapped_labels_impact = ['<br>'.join(textwrap.wrap(label, 25)) for label in impact_counts.index]
+        
         fig_impact = px.pie(
             values=impact_counts.values,
-            names=impact_counts.index,
+            names=wrapped_labels_impact, # Use wrapped labels
             hole=0.3,
             title="Risk Impact Distribution"
         )
@@ -861,14 +866,15 @@ def create_geographic_analysis(df: pd.DataFrame) -> None:
                 Facility Code: {row['HSE Facility']}
                 """
                 
+                # --- MODIFICATION: Make circle markers filled with no border for a cleaner look ---
                 folium.CircleMarker(
                     location=[row['lat'], row['lon']],
                     radius=max(5, min(15, row['risk_count'] // 2)),
                     popup=folium.Popup(popup_text, max_width=300),
-                    color=AppConfig.COLOURS['primary'],
-                    colorOpacity=0.0,
+                    weight=0,  # Set border weight to 0 to remove it
+                    fill=True,
                     fillColor=AppConfig.COLOURS['primary'],
-                    fillOpacity=0.0
+                    fillOpacity=0.7 # Make the fill semi-transparent and visible
                 ).add_to(m)
         
         folium_static(m, height=500)
@@ -882,9 +888,14 @@ def create_geographic_analysis(df: pd.DataFrame) -> None:
         # Use full name if available, otherwise facility code
         facility_summary['display_name'] = facility_summary['name'].fillna(facility_summary['HSE Facility'])
 
+        # --- MODIFICATION: Wrap long labels for better readability in the pie chart ---
+        facility_summary['display_name_wrapped'] = facility_summary['display_name'].apply(
+            lambda x: '<br>'.join(textwrap.wrap(x, 20))
+        )
+        
         fig_donut = px.pie(
             facility_summary,
-            names='display_name',
+            names='display_name_wrapped', # Use wrapped labels column
             values='Total Risks',
             hole=0.4,
             title="Risk Distribution by Facility",
@@ -1367,16 +1378,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
-
-
-
-
-
-
-
-

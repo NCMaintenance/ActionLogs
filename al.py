@@ -200,7 +200,7 @@ class PDF(FPDF):
             logger.warning("Could not fetch HSE logo for PDF header. Skipping.")
             self.set_x(10) # Move to where the title should be if logo fails
         # Font
-        self.set_font('Arial', 'B', 15)
+        self.set_font('Helvetica', 'B', 15)
         # Title
         self.cell(0, 10, 'HSE Risk Analysis Report', 0, 0, 'C')
         # Line break
@@ -208,7 +208,7 @@ class PDF(FPDF):
 
     def footer(self):
         self.set_y(-15)
-        self.set_font('Arial', 'I', 8)
+        self.set_font('Helvetica', 'I', 8)
         # Page number
         self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
         # Report date
@@ -1176,7 +1176,7 @@ def generate_professional_pdf(df_filtered: pd.DataFrame, figures: dict) -> bytes
     pdf.add_page()
     
     # --- Title ---
-    pdf.set_font("Arial", 'B', 20)
+    pdf.set_font("Helvetica", 'B', 20)
     pdf.cell(0, 10, "Executive Risk Summary", 0, 1, 'C')
     pdf.ln(5)
 
@@ -1186,14 +1186,14 @@ def generate_professional_pdf(df_filtered: pd.DataFrame, figures: dict) -> bytes
     high_risks = len(df_filtered[df_filtered['Risk Rating'] == 'High'])
     high_risk_pct = (high_risks / total_risks * 100) if total_risks > 0 else 0
 
-    pdf.set_font("Arial", '', 12)
+    pdf.set_font("Helvetica", '', 12)
     pdf.cell(0, 10, f"- Total Risks Analysed: {total_risks}", 0, 1)
     pdf.cell(0, 10, f"- Facilities Included: {facilities_count}", 0, 1)
     pdf.cell(0, 10, f"- High Priority Risks: {high_risks} ({high_risk_pct:.1f}%)", 0, 1)
     pdf.ln(10)
 
     # --- Charts Section ---
-    pdf.set_font("Arial", 'B', 16)
+    pdf.set_font("Helvetica", 'B', 16)
     pdf.cell(0, 10, "Risk Distribution Analysis", 0, 1, 'L')
     pdf.ln(5)
     
@@ -1210,7 +1210,7 @@ def generate_professional_pdf(df_filtered: pd.DataFrame, figures: dict) -> bytes
         
     except Exception as e:
         logger.error(f"Failed to convert charts to images for PDF: {e}")
-        pdf.set_font("Arial", 'I', 10)
+        pdf.set_font("Helvetica", 'I', 10)
         pdf.set_text_color(255, 0, 0)
         pdf.cell(0, 10, f"Error: Could not render charts. Please ensure 'kaleido' is installed.", 0, 1)
         pdf.set_text_color(0, 0, 0)
@@ -1219,21 +1219,21 @@ def generate_professional_pdf(df_filtered: pd.DataFrame, figures: dict) -> bytes
 
     # --- High Priority Risks Table ---
     pdf.add_page()
-    pdf.set_font("Arial", 'B', 16)
+    pdf.set_font("Helvetica", 'B', 16)
     pdf.cell(0, 10, "Top 10 High Priority Risks", 0, 1, 'L')
     pdf.ln(5)
     
     high_risk_df = df_filtered[df_filtered['Risk Rating'] == 'High'].head(10)
     
     if not high_risk_df.empty:
-        pdf.set_font("Arial", 'B', 9)
+        pdf.set_font("Helvetica", 'B', 9)
         # Table Header
         pdf.cell(30, 7, 'Facility', 1, 0, 'C')
         pdf.cell(100, 7, 'Risk Description', 1, 0, 'C')
         pdf.cell(60, 7, 'Impact Category', 1, 1, 'C')
 
         # Table Body
-        pdf.set_font("Arial", '', 8)
+        pdf.set_font("Helvetica", '', 8)
         for index, row in high_risk_df.iterrows():
             # Use multi_cell for text wrapping
             x_start = pdf.get_x()
@@ -1253,11 +1253,11 @@ def generate_professional_pdf(df_filtered: pd.DataFrame, figures: dict) -> bytes
             pdf.set_y(max_y)
 
     else:
-        pdf.set_font("Arial", '', 10)
+        pdf.set_font("Helvetica", '', 10)
         pdf.cell(0, 10, "No high priority risks found in the current selection.", 0, 1)
 
     # Output the PDF as bytes
-    return pdf.output()
+    return bytes(pdf.output())
 
 def run_professional_dashboard():
     """Enhanced main dashboard function"""
@@ -1520,6 +1520,8 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
 
 
 

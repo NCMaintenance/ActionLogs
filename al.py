@@ -912,7 +912,7 @@ def create_geographic_analysis(df: pd.DataFrame) -> None:
         centre_lat, centre_lon = 53.4, -7.9
         m = folium.Map(
             location=[centre_lat, centre_lon], 
-            zoom_start=7,
+            zoom_start=8,
             tiles='OpenStreetMap'
         )
         
@@ -944,7 +944,7 @@ def create_geographic_analysis(df: pd.DataFrame) -> None:
                     weight=0,
                     fill=True,
                     fillColor=AppConfig.COLOURS['primary'],
-                    fillOpacity=0.7
+                    fillOpacity=0
                 ).add_to(m)
         
         folium_static(m, height=500)

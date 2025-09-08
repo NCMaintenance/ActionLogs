@@ -1257,7 +1257,7 @@ def generate_professional_pdf(df_filtered: pd.DataFrame, figures: dict) -> bytes
         pdf.cell(0, 10, "No high priority risks found in the current selection.", 0, 1)
 
     # Output the PDF as bytes
-    return pdf.output(dest='S').encode('latin-1')
+    return pdf.output()
 
 def run_professional_dashboard():
     """Enhanced main dashboard function"""
@@ -1520,6 +1520,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 

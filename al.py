@@ -158,7 +158,7 @@ st.markdown("""
 # --- Professional Constants ---
 class AppConfig:
     """Application configuration constants"""
-    APP_VERSION = "2.4.0" # Updated version for Multi-Page layout
+    APP_VERSION = "2.4.1" # Restored main dashboard charts
     APP_NAME = "HSE Risk Analysis Dashboard"
     AUTHOR = "Healthcare Risk Management Team"
     LAST_UPDATED = "September 2025"
@@ -408,9 +408,6 @@ def load_and_merge_data(uploaded_file) -> Optional[pd.DataFrame]:
         processing_time = time.time() - start_time
         logger.info(f"Data processing completed in {processing_time:.2f} seconds")
         
-        # This message will show once, after initial processing
-        # st.toast(f"Successfully processed {len(merged_df)} risk records.")
-        
         return merged_df
             
     except Exception as e:
@@ -497,8 +494,6 @@ def assign_gemini_topics_batch(_df: pd.DataFrame, api_key: str) -> pd.DataFrame:
                     # Log success
                     successful_mappings = len([v for v in category_map.values() if v != "Other"])
                     logger.info(f"AI successfully classified {successful_mappings}/{len(unique_topics)} categories")
-                    
-                    # st.toast(f"AI classification completed!")
                     
                     return df
                     
@@ -774,11 +769,57 @@ def map_topical_category(category) -> str:
     
     return 'Other'
 
-# --- Enhanced Dashboard Functions ---
+# --- Dashboard Page Functions ---
+
+def create_main_dashboard_charts(df: pd.DataFrame) -> None:
+    """Creates the primary charts for the main dashboard overview."""
+    st.markdown('<div class="pdf-section">', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><h3>📈 Key Risk Distributions</h3></div>', unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("🤖 AI-Generated Topic Distribution")
+        if 'AI-Generated Topic' in df.columns:
+            ai_topic_counts = df['AI-Generated Topic'].value_counts()
+            wrapped_labels = ['<br>'.join(textwrap.wrap(label, 25)) for label in ai_topic_counts.index]
+            fig_ai_donut = px.pie(
+                values=ai_topic_counts.values,
+                names=wrapped_labels,
+                hole=0.4,
+                title="AI Classification Results",
+                color_discrete_sequence=px.colors.qualitative.Set3
+            )
+            fig_ai_donut.update_traces(textposition='inside', textinfo='percent+label')
+            fig_ai_donut.update_layout(
+                font=dict(size=12),
+                showlegend=True,
+                legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.01)
+            )
+            st.plotly_chart(fig_ai_donut, use_container_width=True)
+    
+    with col2:
+        st.subheader("⚠️ Risk Priority Distribution")
+        rating_counts = df['Risk Rating'].value_counts()
+        fig_rating = px.bar(
+            x=rating_counts.index,
+            y=rating_counts.values,
+            labels={'x': 'Risk Priority Level', 'y': 'Number of Risks'},
+            title="Risk Priority Breakdown",
+            color=rating_counts.index,
+            color_discrete_map=AppConfig.RISK_COLOURS
+        )
+        fig_rating.update_layout(showlegend=False, xaxis_title="Risk Priority Level", yaxis_title="Count")
+        st.plotly_chart(fig_rating, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
 def create_risk_distribution_analysis(df: pd.DataFrame) -> None:
-    """Create comprehensive risk distribution analysis."""
+    """Create comprehensive risk distribution analysis page."""
     st.markdown('<div class="pdf-section">', unsafe_allow_html=True)
     st.markdown('<div class="section-header"><h3>📈 Risk Distribution Analysis</h3></div>', unsafe_allow_html=True)
+    
+    st.write("This page provides a detailed breakdown of risk distributions across multiple categories.")
     
     col1, col2 = st.columns(2)
     
@@ -1200,7 +1241,7 @@ def run_professional_dashboard():
         
     st.sidebar.markdown("---")
 
-    # --- NEW: Page Navigation ---
+    # --- Page Navigation ---
     st.sidebar.title("Dashboard Navigation")
     page = st.sidebar.radio(
         "Select a page:",
@@ -1209,7 +1250,6 @@ def run_professional_dashboard():
     st.sidebar.markdown("---")
 
     # --- File Upload and Data Processing ---
-    # This runs regardless of the page selected
     st.markdown("### 📁 Data Upload")
     uploaded_file = st.file_uploader(
         "Upload your HSE Risk Analysis Excel file",
@@ -1251,7 +1291,6 @@ def run_professional_dashboard():
     df['Parent Category'] = df['Topical Category'].apply(map_topical_category)
 
     # --- Filters and PDF Export ---
-    # These are also common to all pages
     filters = create_professional_filters(df)
     
     st.sidebar.markdown("### 📄 Export to PDF")
@@ -1284,9 +1323,10 @@ def run_professional_dashboard():
         return
 
     # --- Page Content Rendering ---
-    # This block decides which page to show
     if page == 'Main Dashboard':
         create_enhanced_metrics_display(df_filtered)
+        st.markdown("---")
+        create_main_dashboard_charts(df_filtered) # NEW function call for main page charts
         st.markdown("---")
         create_advanced_analytics(df_filtered)
         st.markdown("---") 

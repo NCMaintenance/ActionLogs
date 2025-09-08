@@ -22,7 +22,6 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 import time
 import pytz
-from fpdf import FPDF # New import for PDF generation
 
 # Configure logging
 logging.basicConfig(
@@ -51,6 +50,7 @@ st.set_page_config(
 # Custom CSS for professional styling
 st.markdown("""
 <style>
+    /* --- General Styles --- */
     .main-header {
         background-color: #045A4D; /* HSE Green */
         display: flex;
@@ -69,60 +69,67 @@ st.markdown("""
     .main-header-text {
         text-align: left;
     }
-    
     .login-container .stButton > button {
-        background-color: white;
-        color: black;
-        border: 1px solid #ced4da;
+        background-color: white; color: black; border: 1px solid #ced4da;
     }
     .login-container .stButton > button:hover {
-        background-color: #f0f2f6;
-        border-color: #045A4D;
-        color: #045A4D;
+        background-color: #f0f2f6; border-color: #045A4D; color: #045A4D;
     }
-    
     .metric-container {
-        background: white;
-        padding: 1rem;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        margin: 0.5rem 0;
+        background: white; padding: 1rem; border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin: 0.5rem 0;
     }
-    
     .section-header {
-        background: #f8f9fa;
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 1rem 0;
-        border-left: 4px solid #28a745;
+        background: #f8f9fa; padding: 1rem; border-radius: 8px;
+        margin: 1rem 0; border-left: 4px solid #28a745;
     }
-    
     .alert-box {
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 1rem 0;
-        border: 1px solid #dee2e6;
+        padding: 1rem; border-radius: 8px; margin: 1rem 0; border: 1px solid #dee2e6;
     }
-    
     .alert-success { background-color: #d4edda; border-color: #c3e6cb; color: #155724; }
     .alert-warning { background-color: #fff3cd; border-color: #ffeaa7; color: #856404; }
     .alert-danger { background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; }
     .alert-info { background-color: #cce7ff; border-color: #b3d9ff; color: #004085; }
-    
     .sidebar .sidebar-content {
         background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
     }
-    
-    .stSelectbox > div > div {
-        border-radius: 8px;
+    .stSelectbox > div > div { border-radius: 8px; }
+    .footer {
+        text-align: center; padding: 2rem; color: #6c757d;
+        border-top: 1px solid #dee2e6; margin-top: 3rem;
     }
     
-    .footer {
-        text-align: center;
-        padding: 2rem;
-        color: #6c757d;
-        border-top: 1px solid #dee2e6;
-        margin-top: 3rem;
+    /* --- NEW: CSS for Print to PDF --- */
+    @media print {
+        /* Hide unwanted elements */
+        .main-header, .stSidebar, .stFileUploader, .stButton, .footer, .stExpander, .login-container {
+            display: none !important;
+        }
+
+        /* Ensure main content takes up the full page */
+        .main .block-container {
+            max-width: 100% !important;
+            padding: 1cm !important;
+        }
+
+        /* Prevent sections from being split across pages */
+        .pdf-section {
+            page-break-inside: avoid !important;
+            margin-bottom: 2rem;
+        }
+        
+        /* Force a page break before major new sections for clean layout */
+        .pdf-section-break {
+             page-break-before: always !important;
+        }
+
+        /* General styling for print */
+        body {
+            background-color: white !important;
+        }
+        .section-header h3 {
+            font-size: 16pt !important;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -130,7 +137,7 @@ st.markdown("""
 # --- Professional Constants ---
 class AppConfig:
     """Application configuration constants"""
-    APP_VERSION = "2.2.1" # Updated version for PDF export fix
+    APP_VERSION = "2.3.0" # Updated version for Print to PDF
     APP_NAME = "HSE Risk Analysis Dashboard"
     AUTHOR = "Healthcare Risk Management Team"
     LAST_UPDATED = "September 2025"
@@ -189,34 +196,6 @@ class DataProcessingError(DashboardError):
 class APIError(DashboardError):
     """Exception for API-related errors"""
     pass
-
-# --- PDF Generation Class ---
-class PDF(FPDF):
-    def header(self):
-        try:
-            # --- FIX: Replaced SVG with a more compatible JPG logo ---
-            self.image("https://tinteanhousing.eu/wp-content/uploads/2023/03/HSE-Logo.jpg", 10, 8, 33)
-        except Exception as e:
-            logger.warning(f"Could not fetch or process PDF header logo: {e}")
-            self.set_x(10) # Move to where the title should be if logo fails
-        # Font
-        self.set_font('Helvetica', 'B', 15)
-        # Title
-        self.cell(0, 10, 'HSE Risk Analysis Report', 0, 0, 'C')
-        # Line break
-        self.ln(20)
-
-    def footer(self):
-        self.set_y(-15)
-        self.set_font('Helvetica', 'I', 8)
-        # Page number
-        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
-        # Report date
-        self.set_x(10)
-        irish_tz = pytz.timezone("Europe/Dublin")
-        report_date = datetime.now(irish_tz).strftime("%d-%b-%Y %H:%M:%S")
-        self.cell(0, 10, f'Generated on: {report_date}', 0, 0, 'L')
-
 
 # --- Enhanced Helper Functions ---
 @st.cache_resource
@@ -643,6 +622,7 @@ def create_professional_wordcloud(text_series: pd.Series, title: str) -> Optiona
 
 def create_enhanced_metrics_display(df: pd.DataFrame) -> None:
     """Create professional metrics display with KPIs"""
+    st.markdown('<div class="pdf-section">', unsafe_allow_html=True)
     st.markdown('<div class="section-header"><h3>📊 Risk Overview Dashboard</h3></div>', unsafe_allow_html=True)
     
     # Main metrics
@@ -682,6 +662,7 @@ def create_enhanced_metrics_display(df: pd.DataFrame) -> None:
             value=categories,
             help="Number of distinct risk impact categories identified"
         )
+    st.markdown('</div>', unsafe_allow_html=True)
 
 def create_professional_filters(df: pd.DataFrame) -> Dict:
     """Create professional sidebar filters with better UX"""
@@ -774,15 +755,15 @@ def map_topical_category(category) -> str:
     return 'Other'
 
 # --- Enhanced Dashboard Functions ---
-def create_risk_distribution_analysis(df: pd.DataFrame) -> Tuple[go.Figure, go.Figure, go.Figure, go.Figure]:
-    """Create comprehensive risk distribution analysis and return figures for PDF export."""
+def create_risk_distribution_analysis(df: pd.DataFrame) -> None:
+    """Create comprehensive risk distribution analysis."""
+    st.markdown('<div class="pdf-section">', unsafe_allow_html=True)
     st.markdown('<div class="section-header"><h3>📈 Risk Distribution Analysis</h3></div>', unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     
     with col1:
         st.subheader("🤖 AI-Generated Topic Distribution")
-        fig_ai_donut = go.Figure() # Default figure
         if 'AI-Generated Topic' in df.columns:
             ai_topic_counts = df['AI-Generated Topic'].value_counts()
             wrapped_labels = ['<br>'.join(textwrap.wrap(label, 25)) for label in ai_topic_counts.index]
@@ -844,18 +825,20 @@ def create_risk_distribution_analysis(df: pd.DataFrame) -> Tuple[go.Figure, go.F
             color_continuous_scale='Blues'
         )
         st.plotly_chart(fig_location, use_container_width=True)
-        
-    return fig_ai_donut, fig_rating, fig_impact, fig_location
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def create_geographic_analysis(df: pd.DataFrame) -> None:
     """Create enhanced geographic risk analysis"""
+    st.markdown('<div class="pdf-section pdf-section-break">', unsafe_allow_html=True)
     st.markdown('<div class="section-header"><h3>🗺️ Geographic Risk Analysis</h3></div>', unsafe_allow_html=True)
     
     map_df = df.dropna(subset=['lat', 'lon']).copy()
     
     if map_df.empty:
         show_info_message("No geographic data available for mapping analysis.")
+        st.markdown('</div>', unsafe_allow_html=True)
         return
     
     col1, col2 = st.columns([2, 1])
@@ -933,9 +916,11 @@ def create_geographic_analysis(df: pd.DataFrame) -> None:
             margin=dict(t=50, b=0, l=0, r=0)
         )
         st.plotly_chart(fig_donut, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 def create_advanced_analytics(df: pd.DataFrame) -> None:
     """Create advanced analytics section with a Sankey Diagram."""
+    st.markdown('<div class="pdf-section pdf-section-break">', unsafe_allow_html=True)
     st.markdown('<div class="section-header"><h3>🔬 Advanced Analytics</h3></div>', unsafe_allow_html=True)
     
     st.subheader("📊 Risk Flow Analysis (Sankey Diagram)")
@@ -944,12 +929,14 @@ def create_advanced_analytics(df: pd.DataFrame) -> None:
     required_cols = ['Location of Risk Source', 'Risk Rating', 'Parent Category']
     if not all(col in df.columns for col in required_cols):
         show_info_message("Insufficient data for the Risk Flow Analysis. Required columns are missing.")
+        st.markdown('</div>', unsafe_allow_html=True)
         return
 
     sankey_data = df.dropna(subset=required_cols)
     
     if sankey_data.empty:
         show_info_message("No data available to generate the Risk Flow Analysis chart.")
+        st.markdown('</div>', unsafe_allow_html=True)
         return
         
     all_nodes = list(pd.unique(sankey_data[required_cols].values.ravel('K')))
@@ -983,10 +970,12 @@ def create_advanced_analytics(df: pd.DataFrame) -> None:
     
     fig.update_layout(title_text="Risk Flow: Source → Priority → Category", font=dict(size=14), height=900)
     st.plotly_chart(fig, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def create_text_analytics(df: pd.DataFrame) -> None:
     """Create enhanced text analytics section"""
+    st.markdown('<div class="pdf-section pdf-section-break">', unsafe_allow_html=True)
     st.markdown('<div class="section-header"><h3>📝 Text Analytics & Insights</h3></div>', unsafe_allow_html=True)
     
     col1, spacer, col2 = st.columns([10, 1, 10]) # Use a spacer column
@@ -1042,9 +1031,11 @@ def create_text_analytics(df: pd.DataFrame) -> None:
     
     with text_metrics_cols[3]:
         st.metric("Total Words Analysed", f"{total_words:,}")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 def create_executive_summary(df: pd.DataFrame) -> None:
     """Create executive summary section"""
+    st.markdown('<div class="pdf-section pdf-section-break">', unsafe_allow_html=True)
     st.markdown('<div class="section-header"><h3>📋 Executive Summary</h3></div>', unsafe_allow_html=True)
     
     # Key findings
@@ -1090,6 +1081,7 @@ def create_executive_summary(df: pd.DataFrame) -> None:
     if date_columns:
         st.subheader("📈 Risk Trends")
         show_info_message("Trend analysis available - implement based on your specific date columns.")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 def create_data_quality_report(df: pd.DataFrame) -> None:
     """Create data quality assessment"""
@@ -1167,109 +1159,6 @@ def create_data_quality_report(df: pd.DataFrame) -> None:
             help="Composite score based on completeness and consistency"
         )
 
-# --- NEW: Professional PDF Generation Function ---
-def generate_professional_pdf(df_filtered: pd.DataFrame, figures: dict) -> bytes:
-    """
-    Generates a professional PDF report from the filtered data and charts.
-    """
-    pdf = PDF(orientation='P', unit='mm', format='A4')
-    pdf.add_page()
-    
-    # --- Title ---
-    pdf.set_font("Helvetica", 'B', 20)
-    pdf.cell(0, 10, "Executive Risk Summary", 0, 1, 'C')
-    pdf.ln(5)
-
-    # --- Key Metrics ---
-    total_risks = len(df_filtered)
-    facilities_count = df_filtered['HSE Facility'].nunique()
-    high_risks = len(df_filtered[df_filtered['Risk Rating'] == 'High'])
-    high_risk_pct = (high_risks / total_risks * 100) if total_risks > 0 else 0
-
-    pdf.set_font("Helvetica", '', 12)
-    pdf.cell(0, 10, f"- Total Risks Analysed: {total_risks}", 0, 1)
-    pdf.cell(0, 10, f"- Facilities Included: {facilities_count}", 0, 1)
-    pdf.cell(0, 10, f"- High Priority Risks: {high_risks} ({high_risk_pct:.1f}%)", 0, 1)
-    pdf.ln(10)
-
-    # --- Charts Section ---
-    pdf.set_font("Helvetica", 'B', 16)
-    pdf.cell(0, 10, "Risk Distribution Analysis", 0, 1, 'L')
-    pdf.ln(5)
-    
-    # Convert Plotly figures to images and add to PDF
-    try:
-        img_added_y = pdf.get_y()
-        img_added = False
-        
-        # Check if donut chart has data before rendering
-        if figures['donut'] and figures['donut'].data:
-            img_donut_bytes = figures['donut'].to_image(format="png", width=800, height=500, scale=2)
-            pdf.image(io.BytesIO(img_donut_bytes), x=10, y=img_added_y, w=90, type='PNG')
-            img_added = True
-
-        # Check if rating chart has data before rendering
-        if figures['rating'] and figures['rating'].data:
-            img_rating_bytes = figures['rating'].to_image(format="png", width=800, height=500, scale=2)
-            # Position next to the first image or at the start if the first is missing
-            x_pos = 110 if img_added else 10 
-            pdf.image(io.BytesIO(img_rating_bytes), x=x_pos, y=img_added_y, w=90, type='PNG')
-            img_added = True
-
-        if img_added:
-            pdf.ln(70) # Adjust spacing only if images were added
-        
-    except Exception as e:
-        logger.error(f"Failed to convert charts to images for PDF: {e}")
-        pdf.set_font("Helvetica", 'I', 10)
-        pdf.set_text_color(255, 0, 0)
-        pdf.cell(0, 10, f"Error: Could not render charts. Please ensure 'kaleido' is installed.", 0, 1)
-        pdf.set_text_color(0, 0, 0)
-    
-    pdf.ln(10)
-
-    # --- High Priority Risks Table ---
-    pdf.add_page()
-    pdf.set_font("Helvetica", 'B', 16)
-    pdf.cell(0, 10, "Top 10 High Priority Risks", 0, 1, 'L')
-    pdf.ln(5)
-    
-    high_risk_df = df_filtered[df_filtered['Risk Rating'] == 'High'].head(10)
-    
-    if not high_risk_df.empty:
-        pdf.set_font("Helvetica", 'B', 9)
-        # Table Header
-        pdf.cell(30, 7, 'Facility', 1, 0, 'C')
-        pdf.cell(100, 7, 'Risk Description', 1, 0, 'C')
-        pdf.cell(60, 7, 'Impact Category', 1, 1, 'C')
-
-        # Table Body
-        pdf.set_font("Helvetica", '', 8)
-        for index, row in high_risk_df.iterrows():
-            # Use multi_cell for text wrapping
-            x_start = pdf.get_x()
-            y_start = pdf.get_y()
-            pdf.multi_cell(30, 6, str(row.get('HSE Facility', 'N/A')), 1, 'L')
-            
-            y_after_facility = pdf.get_y()
-            pdf.set_xy(x_start + 30, y_start)
-            pdf.multi_cell(100, 6, str(row.get('Risk Description', 'N/A')), 1, 'L')
-            
-            y_after_desc = pdf.get_y()
-            pdf.set_xy(x_start + 130, y_start)
-            pdf.multi_cell(60, 6, str(row.get('Risk Impact Category', 'N/A')), 1, 'L')
-
-            # Determine max height of the row and adjust Y position for the next row
-            max_y = max(y_after_facility, y_after_desc, pdf.get_y())
-            pdf.set_y(max_y)
-
-    else:
-        pdf.set_font("Helvetica", '', 10)
-        pdf.cell(0, 10, "No high priority risks found in the current selection.", 0, 1)
-
-    # Output the PDF as bytes
-    return bytes(pdf.output())
-
 def run_professional_dashboard():
     """Enhanced main dashboard function"""
     show_professional_header()
@@ -1338,6 +1227,19 @@ def run_professional_dashboard():
     # Professional filters
     filters = create_professional_filters(df)
     
+    # --- NEW: PDF Export Instructions in Sidebar ---
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 📄 Export to PDF")
+    st.sidebar.info(
+        """
+        1. Press `Ctrl+P` (or `Cmd+P`).
+        2. Set **Destination** to **Save as PDF**.
+        3. Set **Layout** to **Landscape**.
+        4. Enable **Background graphics**.
+        5. Click **Save**.
+        """
+    )
+
     # Apply filters
     df_filtered = df[
         df['HSE Facility'].isin(filters['facilities']) &
@@ -1349,37 +1251,16 @@ def run_professional_dashboard():
     if 'ai_topics' in filters:
         df_filtered = df_filtered[df_filtered['AI-Generated Topic'].isin(filters['ai_topics'])]
         
-    # --- PDF Download Button in Sidebar ---
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### 📄 Export Report")
-
-    # This check is crucial. We only proceed to generate content if filters return data.
     if df_filtered.empty:
         show_warning_message("No data matches your current filter selection. Please adjust the filters.")
-        st.sidebar.warning("No data to export.")
         return
 
     # Main dashboard sections
     create_enhanced_metrics_display(df_filtered)
     
     st.markdown("---")
-    # This function now returns the figures we need for the PDF
-    fig_ai, fig_rating, fig_impact, fig_location = create_risk_distribution_analysis(df_filtered)
+    create_risk_distribution_analysis(df_filtered)
     
-    # Prepare figures dictionary for PDF
-    figures_for_pdf = {'donut': fig_ai, 'rating': fig_rating}
-    
-    # Generate PDF in memory
-    pdf_bytes = generate_professional_pdf(df_filtered, figures_for_pdf)
-    
-    st.sidebar.download_button(
-        label="📥 Download PDF Report",
-        data=pdf_bytes,
-        file_name=f"HSE_Risk_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
-        mime="application/pdf",
-        help="Download a professional summary of the filtered data as a PDF."
-    )
-
     st.markdown("---")
     create_advanced_analytics(df_filtered)
     
@@ -1531,8 +1412,6 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
 
 
 

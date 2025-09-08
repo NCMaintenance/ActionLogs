@@ -1199,14 +1199,25 @@ def generate_professional_pdf(df_filtered: pd.DataFrame, figures: dict) -> bytes
     
     # Convert Plotly figures to images and add to PDF
     try:
-        # Save figures to a buffer
-        img_donut_bytes = figures['donut'].to_image(format="png", width=800, height=500, scale=2)
-        img_rating_bytes = figures['rating'].to_image(format="png", width=800, height=500, scale=2)
+        img_added_y = pdf.get_y()
+        img_added = False
+        
+        # Check if donut chart has data before rendering
+        if figures['donut'] and figures['donut'].data:
+            img_donut_bytes = figures['donut'].to_image(format="png", width=800, height=500, scale=2)
+            pdf.image(io.BytesIO(img_donut_bytes), x=10, y=img_added_y, w=90, type='PNG')
+            img_added = True
 
-        # Add images to PDF, side-by-side
-        pdf.image(io.BytesIO(img_donut_bytes), x=10, y=pdf.get_y(), w=90, type='PNG')
-        pdf.image(io.BytesIO(img_rating_bytes), x=110, y=pdf.get_y(), w=90, type='PNG')
-        pdf.ln(70) # Adjust spacing after images
+        # Check if rating chart has data before rendering
+        if figures['rating'] and figures['rating'].data:
+            img_rating_bytes = figures['rating'].to_image(format="png", width=800, height=500, scale=2)
+            # Position next to the first image or at the start if the first is missing
+            x_pos = 110 if img_added else 10 
+            pdf.image(io.BytesIO(img_rating_bytes), x=x_pos, y=img_added_y, w=90, type='PNG')
+            img_added = True
+
+        if img_added:
+            pdf.ln(70) # Adjust spacing only if images were added
         
     except Exception as e:
         logger.error(f"Failed to convert charts to images for PDF: {e}")
@@ -1520,7 +1531,6 @@ def main():
 
 if __name__ == '__main__':
     main()
-
 
 
 

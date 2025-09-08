@@ -130,7 +130,7 @@ st.markdown("""
 # --- Professional Constants ---
 class AppConfig:
     """Application configuration constants"""
-    APP_VERSION = "2.2.0" # Updated version for PDF export
+    APP_VERSION = "2.2.1" # Updated version for PDF export fix
     APP_NAME = "HSE Risk Analysis Dashboard"
     AUTHOR = "Healthcare Risk Management Team"
     LAST_UPDATED = "September 2025"
@@ -194,10 +194,10 @@ class APIError(DashboardError):
 class PDF(FPDF):
     def header(self):
         try:
-            # Logo - Added error handling for image fetching
-            self.image("https://www.hse.ie/image-library/hse-site-logo-2021.svg", 10, 8, 33, link="https://www.hse.ie/")
-        except RuntimeError:
-            logger.warning("Could not fetch HSE logo for PDF header. Skipping.")
+            # --- FIX: Replaced SVG with a more compatible JPG logo ---
+            self.image("https://tinteanhousing.eu/wp-content/uploads/2023/03/HSE-Logo.jpg", 10, 8, 33)
+        except Exception as e:
+            logger.warning(f"Could not fetch or process PDF header logo: {e}")
             self.set_x(10) # Move to where the title should be if logo fails
         # Font
         self.set_font('Helvetica', 'B', 15)
@@ -1531,7 +1531,6 @@ def main():
 
 if __name__ == '__main__':
     main()
-
 
 
 

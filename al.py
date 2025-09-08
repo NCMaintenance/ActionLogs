@@ -99,7 +99,28 @@ st.markdown("""
         border-top: 1px solid #dee2e6; margin-top: 3rem;
     }
     
-    /* --- NEW: CSS for Print to PDF --- */
+    .print-button {
+        display: block;
+        padding: 10px 20px;
+        font-size: 16px;
+        font-weight: bold;
+        color: white !important;
+        background-color: #045A4D; /* HSE Green */
+        border: none;
+        border-radius: 8px;
+        text-align: center;
+        text-decoration: none;
+        cursor: pointer;
+        width: 100%;
+        margin-bottom: 10px;
+    }
+    .print-button:hover {
+        background-color: #033a32; /* Darker Green */
+        color: white !important;
+        text-decoration: none;
+    }
+
+    /* --- CSS for Print to PDF --- */
     @media print {
         /* Hide unwanted elements */
         .main-header, .stSidebar, .stFileUploader, .stButton, .footer, .stExpander, .login-container {
@@ -137,7 +158,7 @@ st.markdown("""
 # --- Professional Constants ---
 class AppConfig:
     """Application configuration constants"""
-    APP_VERSION = "2.3.0" # Updated version for Print to PDF
+    APP_VERSION = "2.4.0" # Updated version for Multi-Page layout
     APP_NAME = "HSE Risk Analysis Dashboard"
     AUTHOR = "Healthcare Risk Management Team"
     LAST_UPDATED = "September 2025"
@@ -283,6 +304,7 @@ def validate_uploaded_file(uploaded_file) -> bool:
     
     return True
 
+@st.cache_data(show_spinner="Loading and processing data...")
 def load_and_merge_data(uploaded_file) -> Optional[pd.DataFrame]:
     """
     Enhanced data loading with comprehensive error handling and validation
@@ -291,105 +313,105 @@ def load_and_merge_data(uploaded_file) -> Optional[pd.DataFrame]:
         return None
     
     try:
-        with show_loading_spinner("Loading and validating Excel file..."):
-            start_time = time.time()
-            
-            # Read Excel file
-            xls = pd.ExcelFile(uploaded_file)
-            sheet_names = xls.sheet_names
-            
-            if not sheet_names:
-                show_error_message("The uploaded Excel file contains no worksheets.")
-                return None
-            
-            logger.info(f"Found {len(sheet_names)} worksheets: {sheet_names}")
-            
-            all_sheets_df = []
-            processing_errors = []
+        start_time = time.time()
+        
+        # Read Excel file
+        xls = pd.ExcelFile(uploaded_file)
+        sheet_names = xls.sheet_names
+        
+        if not sheet_names:
+            show_error_message("The uploaded Excel file contains no worksheets.")
+            return None
+        
+        logger.info(f"Found {len(sheet_names)} worksheets: {sheet_names}")
+        
+        all_sheets_df = []
+        processing_errors = []
 
-            # Process each sheet
-            for i, sheet_name in enumerate(sheet_names):
-                try:
-                    df_sheet = pd.read_excel(xls, sheet_name=sheet_name, header=2)
-                    
-                    # Data validation
-                    if df_sheet.empty:
-                        logger.warning(f"Sheet '{sheet_name}' is empty, skipping...")
-                        continue
-                    
-                    # Clean the data
-                    df_sheet.dropna(how='all', inplace=True)
-                    
-                    # Forward fill merged cells
-                    columns_to_unmerge = df_sheet.columns[:11]
-                    for col in columns_to_unmerge:
-                        df_sheet[col] = df_sheet[col].ffill()
-                    
-                    # Add facility identifier
-                    df_sheet['HSE Facility'] = sheet_name
-                    
-                    all_sheets_df.append(df_sheet)
-                    logger.info(f"Successfully processed sheet '{sheet_name}' with {len(df_sheet)} rows")
-                    
-                except Exception as e:
-                    error_msg = f"Error processing sheet '{sheet_name}': {str(e)}"
-                    processing_errors.append(error_msg)
-                    logger.error(error_msg)
+        # Process each sheet
+        for i, sheet_name in enumerate(sheet_names):
+            try:
+                df_sheet = pd.read_excel(xls, sheet_name=sheet_name, header=2)
+                
+                # Data validation
+                if df_sheet.empty:
+                    logger.warning(f"Sheet '{sheet_name}' is empty, skipping...")
+                    continue
+                
+                # Clean the data
+                df_sheet.dropna(how='all', inplace=True)
+                
+                # Forward fill merged cells
+                columns_to_unmerge = df_sheet.columns[:11]
+                for col in columns_to_unmerge:
+                    df_sheet[col] = df_sheet[col].ffill()
+                
+                # Add facility identifier
+                df_sheet['HSE Facility'] = sheet_name
+                
+                all_sheets_df.append(df_sheet)
+                logger.info(f"Successfully processed sheet '{sheet_name}' with {len(df_sheet)} rows")
+                
+            except Exception as e:
+                error_msg = f"Error processing sheet '{sheet_name}': {str(e)}"
+                processing_errors.append(error_msg)
+                logger.error(error_msg)
 
-            # Show processing results
-            if processing_errors:
-                show_warning_message(f"Some sheets had issues: {'; '.join(processing_errors)}")
-            
-            if not all_sheets_df:
-                show_error_message("No valid data found in any worksheet.")
-                return None
+        # Show processing results
+        if processing_errors:
+            show_warning_message(f"Some sheets had issues: {'; '.join(processing_errors)}")
+        
+        if not all_sheets_df:
+            show_error_message("No valid data found in any worksheet.")
+            return None
 
-            # Merge all sheets
-            merged_df = pd.concat(all_sheets_df, ignore_index=True)
-            merged_df.columns = merged_df.columns.str.strip()
+        # Merge all sheets
+        merged_df = pd.concat(all_sheets_df, ignore_index=True)
+        merged_df.columns = merged_df.columns.str.strip()
 
-            # Data cleaning and standardisation
-            if 'Risk Rating' in merged_df.columns:
-                merged_df['Risk Rating'] = merged_df['Risk Rating'].astype(str).str.strip()
-                rating_map = {'Hign': 'High', 'Med': 'Medium'}
-                merged_df['Risk Rating'].replace(rating_map, inplace=True)
+        # Data cleaning and standardisation
+        if 'Risk Rating' in merged_df.columns:
+            merged_df['Risk Rating'] = merged_df['Risk Rating'].astype(str).str.strip()
+            rating_map = {'Hign': 'High', 'Med': 'Medium'}
+            merged_df['Risk Rating'].replace(rating_map, inplace=True)
 
-            if 'Risk Impact Category' in merged_df.columns:
-                merged_df['Risk Impact Category'] = merged_df['Risk Impact Category'].astype(str).str.strip()
-                # Standardise impact categories
-                category_replacements = {
-                    r'Loos of Trust / confidence|loss of Confidence': 'Loss of Confidence / Trust',
-                    r'Harm to Perso.*': 'Harm to Person'
-                }
-                for pattern, replacement in category_replacements.items():
-                    merged_df['Risk Impact Category'].replace(to_replace=pattern, value=replacement, regex=True, inplace=True)
+        if 'Risk Impact Category' in merged_df.columns:
+            merged_df['Risk Impact Category'] = merged_df['Risk Impact Category'].astype(str).str.strip()
+            # Standardise impact categories
+            category_replacements = {
+                r'Loos of Trust / confidence|loss of Confidence': 'Loss of Confidence / Trust',
+                r'Harm to Perso.*': 'Harm to Person'
+            }
+            for pattern, replacement in category_replacements.items():
+                merged_df['Risk Impact Category'].replace(to_replace=pattern, value=replacement, regex=True, inplace=True)
 
-            if 'Location of Risk Source' in merged_df.columns:
-                merged_df['Location of Risk Source'] = merged_df['Location of Risk Source'].astype(str).str.strip()
-                # Handle multiple locations separated by '/'
-                merged_df = merged_df.assign(**{
-                    'Location of Risk Source': merged_df['Location of Risk Source'].str.split('/')
-                }).explode('Location of Risk Source')
-                merged_df['Location of Risk Source'] = merged_df['Location of Risk Source'].str.strip()
-                # Remove empty entries
-                merged_df = merged_df[merged_df['Location of Risk Source'].str.strip() != '']
-                merged_df.reset_index(drop=True, inplace=True)
+        if 'Location of Risk Source' in merged_df.columns:
+            merged_df['Location of Risk Source'] = merged_df['Location of Risk Source'].astype(str).str.strip()
+            # Handle multiple locations separated by '/'
+            merged_df = merged_df.assign(**{
+                'Location of Risk Source': merged_df['Location of Risk Source'].str.split('/')
+            }).explode('Location of Risk Source')
+            merged_df['Location of Risk Source'] = merged_df['Location of Risk Source'].str.strip()
+            # Remove empty entries
+            merged_df = merged_df[merged_df['Location of Risk Source'].str.strip() != '']
+            merged_df.reset_index(drop=True, inplace=True)
 
-            # Fill NaN values in key categorical columns to prevent errors
-            logger.info("Filling missing values in key categorical columns.")
-            categorical_cols_to_fill = [
-                'Risk Rating', 'Risk Impact Category', 'Location of Risk Source', 'Topical Category'
-            ]
-            for col in categorical_cols_to_fill:
-                if col in merged_df.columns:
-                    merged_df[col].fillna('Unknown', inplace=True)
+        # Fill NaN values in key categorical columns to prevent errors
+        logger.info("Filling missing values in key categorical columns.")
+        categorical_cols_to_fill = [
+            'Risk Rating', 'Risk Impact Category', 'Location of Risk Source', 'Topical Category'
+        ]
+        for col in categorical_cols_to_fill:
+            if col in merged_df.columns:
+                merged_df[col].fillna('Unknown', inplace=True)
 
-            processing_time = time.time() - start_time
-            logger.info(f"Data processing completed in {processing_time:.2f} seconds")
-            
-            show_success_message(f"Successfully processed {len(merged_df)} risk records from {len(sheet_names)} facilities.")
-            
-            return merged_df
+        processing_time = time.time() - start_time
+        logger.info(f"Data processing completed in {processing_time:.2f} seconds")
+        
+        # This message will show once, after initial processing
+        # st.toast(f"Successfully processed {len(merged_df)} risk records.")
+        
+        return merged_df
             
     except Exception as e:
         logger.error(f"Critical error in data loading: {e}")
@@ -476,7 +498,7 @@ def assign_gemini_topics_batch(_df: pd.DataFrame, api_key: str) -> pd.DataFrame:
                     successful_mappings = len([v for v in category_map.values() if v != "Other"])
                     logger.info(f"AI successfully classified {successful_mappings}/{len(unique_topics)} categories")
                     
-                    show_success_message(f"AI classification completed successfully! Classified {successful_mappings}/{len(unique_topics)} categories.")
+                    # st.toast(f"AI classification completed!")
                     
                     return df
                     
@@ -521,7 +543,6 @@ def get_hospital_locations_batch(_df: pd.DataFrame, api_key: str) -> pd.DataFram
     ]
     
     if not unknown_facilities:
-        show_success_message("All hospital locations found in directory.")
         return df
 
     try:
@@ -571,7 +592,6 @@ def get_hospital_locations_batch(_df: pd.DataFrame, api_key: str) -> pd.DataFram
                         df.loc[mask, 'lat'] = data.get('lat')
                         df.loc[mask, 'lon'] = data.get('lon')
                 
-                #show_success_message(f"Successfully located {len(location_data)} facilities.")
             else:
                 show_warning_message("Could not parse location data from AI response.")
                 
@@ -797,6 +817,7 @@ def create_risk_distribution_analysis(df: pd.DataFrame) -> None:
         st.plotly_chart(fig_rating, use_container_width=True)
 
     # Additional analysis row
+    st.markdown("<br>", unsafe_allow_html=True)
     col3, col4 = st.columns(2)
     
     with col3:
@@ -1163,10 +1184,32 @@ def run_professional_dashboard():
     """Enhanced main dashboard function"""
     show_professional_header()
     
-    # Download NLTK resources
-    download_nltk_stopwords()
+    # --- Sidebar Setup ---
+    # Add logo to sidebar
+    logo_url = "https://tinteanhousing.eu/wp-content/uploads/2023/03/HSE-Logo.jpg"
+    st.sidebar.image(logo_url)
     
-    # File upload section
+    # Sidebar authentication status
+    st.sidebar.success("🟢 Authenticated")
+    st.sidebar.markdown(f"**User:** Authorised Personnel")
+    
+    if st.sidebar.button("🚪 Logout", help="End your session and return to login"):
+        st.session_state.authenticated = False
+        logger.info("User logged out")
+        st.rerun()
+        
+    st.sidebar.markdown("---")
+
+    # --- NEW: Page Navigation ---
+    st.sidebar.title("Dashboard Navigation")
+    page = st.sidebar.radio(
+        "Select a page:",
+        ('Main Dashboard', 'Risk Distribution Analysis')
+    )
+    st.sidebar.markdown("---")
+
+    # --- File Upload and Data Processing ---
+    # This runs regardless of the page selected
     st.markdown("### 📁 Data Upload")
     uploaded_file = st.file_uploader(
         "Upload your HSE Risk Analysis Excel file",
@@ -1176,31 +1219,14 @@ def run_professional_dashboard():
     
     if uploaded_file is None:
         show_info_message("Please upload an Excel file to begin the risk analysis.")
-        
-        # Show demo information
         with st.expander("ℹ️ About This Dashboard"):
             st.markdown("""
             This professional risk analysis dashboard provides:
-            
             **🔧 Features:**
             - AI-powered risk categorisation using Google Gemini
-            - Interactive geographic risk mapping
-            - Advanced text analytics and word clouds  
-            - Hierarchical risk flow analysis
-            - Professional data quality reporting
-            - Executive summary with key insights
-            
-            **📊 Analytics Capabilities:**
-            - Risk distribution analysis across facilities
-            - Priority-based risk assessment
-            - Geographic hotspot identification
-            - Text mining of risk descriptions
-            
-            **🚀 Getting Started:**
-            1. Upload your Excel file with risk data
-            2. Use the sidebar filters to focus your analysis
-            3. Explore the interactive visualisations
-            4. Review the executive summary for key insights
+            - Interactive geographic risk mapping & advanced analytics
+            - A dedicated page for detailed **Risk Distribution Analysis**
+            - Print-to-PDF functionality for professional reporting
             """)
         return
 
@@ -1224,19 +1250,21 @@ def run_professional_dashboard():
     # Add derived columns
     df['Parent Category'] = df['Topical Category'].apply(map_topical_category)
 
-    # Professional filters
+    # --- Filters and PDF Export ---
+    # These are also common to all pages
     filters = create_professional_filters(df)
     
-    # --- NEW: PDF Export Instructions in Sidebar ---
-    st.sidebar.markdown("---")
     st.sidebar.markdown("### 📄 Export to PDF")
+    st.sidebar.markdown(
+        '<a href="javascript:window.print()" target="_self"><button class="print-button">🖨️ Generate PDF Report</button></a>',
+        unsafe_allow_html=True
+    )
     st.sidebar.info(
         """
-        1. Press `Ctrl+P` (or `Cmd+P`).
-        2. Set **Destination** to **Save as PDF**.
-        3. Set **Layout** to **Landscape**.
-        4. Enable **Background graphics**.
-        5. Click **Save**.
+        **In the print dialog:**
+        1. Set **Destination** to **Save as PDF**.
+        2. Change **Layout** to **Landscape**.
+        3. Enable **Background graphics**.
         """
     )
 
@@ -1255,25 +1283,23 @@ def run_professional_dashboard():
         show_warning_message("No data matches your current filter selection. Please adjust the filters.")
         return
 
-    # Main dashboard sections
-    create_enhanced_metrics_display(df_filtered)
+    # --- Page Content Rendering ---
+    # This block decides which page to show
+    if page == 'Main Dashboard':
+        create_enhanced_metrics_display(df_filtered)
+        st.markdown("---")
+        create_advanced_analytics(df_filtered)
+        st.markdown("---") 
+        create_geographic_analysis(df_filtered)
+        st.markdown("---")
+        create_text_analytics(df_filtered)
+        st.markdown("---")
+        create_executive_summary(df_filtered)
     
-    st.markdown("---")
-    create_risk_distribution_analysis(df_filtered)
-    
-    st.markdown("---")
-    create_advanced_analytics(df_filtered)
-    
-    st.markdown("---") 
-    create_geographic_analysis(df_filtered)
-    
-    st.markdown("---")
-    create_text_analytics(df_filtered)
-    
-    st.markdown("---")
-    create_executive_summary(df_filtered)
-    
-    # Expandable sections
+    elif page == 'Risk Distribution Analysis':
+        create_risk_distribution_analysis(df_filtered)
+
+    # --- Common Expandable Sections ---
     with st.expander("🔍 Data Quality Assessment"):
         create_data_quality_report(df_filtered)
     
@@ -1285,7 +1311,6 @@ def run_professional_dashboard():
             hide_index=True
         )
         
-        # Download button for CSV
         csv_data = df_filtered.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="📥 Download Filtered Data (CSV)",
@@ -1312,7 +1337,6 @@ def run_professional_dashboard():
 def main():
     """Enhanced main function with professional authentication"""
     
-    # Initialise session state
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
     
@@ -1331,7 +1355,6 @@ def main():
             show_error_message("Authentication system not properly configured.")
             return False
     
-    # Authentication UI
     if not st.session_state.authenticated:
         st.markdown("""
         <div class="main-header">
@@ -1352,62 +1375,29 @@ def main():
                 help="Enter your authorised access password"
             )
             
-            login_button = st.button(
-                "Login",
-                use_container_width=True
-            )
-            
-            if login_button:
+            if st.button("Login", use_container_width=True):
                 if authenticate_user():
-                    show_success_message("Authentication successful! Redirecting to dashboard...")
+                    show_success_message("Authentication successful! Loading dashboard...")
                     time.sleep(1)
                     st.rerun()
                 else:
                     show_error_message("Invalid credentials. Please check your password and try again.")
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # Show system info
         st.markdown("---")
         st.info(f"""
         **System Information:**
         - Dashboard Version: {AppConfig.APP_VERSION}
         - Last Updated: {AppConfig.LAST_UPDATED}
-        - Support: Contact your system administrator
         """)
-        
         return
 
-    # Main dashboard (authenticated users)
     if st.session_state.authenticated:
-        
-        # Add logo to sidebar
-        logo_url = "https://tinteanhousing.eu/wp-content/uploads/2023/03/HSE-Logo.jpg"
-        st.sidebar.markdown(
-            f'<img src="{logo_url}" alt="HSE Logo" style="width: 100%; margin-bottom: 20px;">',
-            unsafe_allow_html=True
-        )
-
-        
-        # Sidebar authentication status
-        st.sidebar.success("🟢 Authenticated")
-        st.sidebar.markdown(f"**User:** Authorised Personnel")
-        st.sidebar.markdown(f"**Session:** Active")
-        
-        if st.sidebar.button("Created by Dave Maher"):
-            st.sidebar.write("This application intellectual property belongs to Dave Maher.")
-        
-        if st.sidebar.button("🚪 Logout", help="End your session and return to login"):
-            st.session_state.authenticated = False
-            logger.info("User logged out")
-            st.rerun()
-        
-        st.sidebar.markdown("---")
-        
         try:
             run_professional_dashboard()
         except Exception as e:
-            logger.error(f"Dashboard error: {e}")
-            show_error_message(f"An unexpected error occurred: {str(e)}")
+            logger.critical(f"An unrecoverable error occurred in the main dashboard run: {e}", exc_info=True)
+            show_error_message(f"A critical error occurred: {str(e)}. Please contact support.")
             st.stop()
 
 if __name__ == '__main__':

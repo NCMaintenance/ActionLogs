@@ -430,7 +430,7 @@ def assign_gemini_topics_batch(_df: pd.DataFrame, api_key: str) -> pd.DataFrame:
     try:
         # Configure Gemini
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(model_name='gemini-1.5-flash-latest')
+        model = genai.GenerativeModel(model_name='gemini-2.5-flash-latest')
     except Exception as e:
         logger.error(f"Gemini API configuration failed: {e}")
         show_error_message("AI service configuration failed. Using default categorisation.")
